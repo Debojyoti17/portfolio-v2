@@ -1,0 +1,21 @@
+---
+import { formatPeriod, type TimelineEntry } from '../lib/content';
+interface Props {
+  entries: TimelineEntry[];
+}
+const { entries } = Astro.props;
+---
+
+<ol class="tl">
+  {entries.map((e) => (
+    <li class="tl__item" data-reveal="fade">
+      <p class="tl__when" set:html={formatPeriod(e.data).replace(' – ', ' <span style="color:var(--accent-text)">–</span> ')} />
+      <div class="tl__body">
+        <h3 class="tl__title">{e.data.title}</h3>
+        <p class="tl__org">{e.data.org}{e.data.location ? ` · ${e.data.location}` : ''}</p>
+        {e.data.summary && <p class="tl__sum">{e.data.summary}</p>}
+      </div>
+      <p class="label tl__kind">{e.data.kind}</p>
+    </li>
+  ))}
+</ol>

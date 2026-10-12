@@ -1,0 +1,108 @@
+---
+import { render } from 'astro:content';
+import { Image } from 'astro:assets';
+import { siteConfig } from '@site';
+import { href } from '../../lib/url';
+import { projectForm, type Project } from '../../lib/content';
+import { FORM_LABELS } from '../../scripts/stage/forms';
+import Base from '../../layouts/Base.astro';
+import Stage from '../Stage.astro';
+import StatusTag from '../StatusTag.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  project: Project;
+  projects: Project[];
+  index: number;
+}
+const { project, projects, index } = Astro.props;
+const { Content } = await render(project);
+const d = project.data;
+const form = projectForm(project);
+const prev = projects[(index - 1 + projects.length) % projects.length];
+const next = projects[(index + 1) % projects.length];
+const pad = (n: number) => String(n).padStart(2, '0');
+const links = [
+  d.links?.github && { label: 'Source code', url: d.links.github, icon: 'code' },
+  d.links?.paper && { label: 'Paper', url: d.links.paper, icon: 'article' },
+  d.links?.demo && { label: 'Live demo', url: d.links.demo, icon: 'play_arrow' },
+  ...(d.links?.other ?? []).map((o) => ({ label: o.label, url: o.url, icon: 'arrow_outward' })),
+].filter(Boolean) as { label: string; url: string; icon: string }[];
+const facts = d.facts ?? [];
+---
+
+<Base title={d.title} description={d.summary} ogImage={`/og/work-${project.id}.png`} ogType="article">
+  <article class="project">
+    <header class="container page-head project__head">
+      <p class="label page-head__label appear">
+        <a class="link" href={href('/work/')}><Icon name="arrow_back" />Work</a>
+        <span aria-hidden="true">/</span>
+        <span>{pad(index + 1)} of {pad(projects.length)}</span>
+      </p>
+      <h1 class="project__title"><span class="rise"><span>{d.title}</span></span></h1>
+      <div class="project__lede">
+        <p class="lead">{d.summary}</p>
+        <p><StatusTag status={d.status} /></p>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="viewport marks" data-reveal="wipe">
+        <i class="viewport__corner viewport__corner--tl"></i><i class="viewport__corner viewport__corner--tr"></i>
+        <i class="viewport__corner viewport__corner--bl"></i><i class="viewport__corner viewport__corner--br"></i>
+        <p class="viewport__cap viewport__cap--top label" aria-hidden="true"><span>Form — {FORM_LABELS[form]}</span><span data-readout-count></span></p>
+        <Stage mode="inline" form={form} />
+        <p class="viewport__cap viewport__cap--bottom label" aria-hidden="true"><span>Move the cursor across the field</span><span>{d.title}</span></p>
+      </div>
+    </div>
+
+    <div class="container project__body">
+      <div class="grid project__grid">
+        <aside class="project__facts" aria-label="Project facts">
+          <dl class="facts">
+            <div><dt class="label">Status</dt><dd>{d.status}</dd></div>
+            {d.role && <div><dt class="label">Role</dt><dd>{d.role}</dd></div>}
+            {facts.map((f) => <div><dt class="label">{f.label}</dt><dd>{f.value}</dd></div>)}
+            {d.tags.length > 0 && (
+              <div>
+                <dt class="label">Topics</dt>
+                <dd>
+                  <ul class="tags">
+                    {d.tags.map((t) => <li><a class="tag tag--link" href={href(`/work/?tag=${encodeURIComponent(t)}`)}>{t}</a></li>)}
+                  </ul>
+                </dd>
+              </div>
+            )}
+          </dl>
+          {links.length > 0 && (
+            <div class="btn-row project__links">
+              {links.map((l) => <a class="btn" href={l.url} rel="noopener">{l.label}<Icon name={l.icon} /></a>)}
+            </div>
+          )}
+        </aside>
+
+        <div class="project__main">
+          {d.cover && (
+            <figure class="project__cover">
+              <Image src={d.cover} alt={d.coverAlt ?? ''} widths={[640, 1000, 1400]} sizes="(min-width: 900px) 60vw, 100vw" />
+            </figure>
+          )}
+          <div class="prose project__prose"><Content /></div>
+        </div>
+      </div>
+    </div>
+
+    {projects.length > 1 && (
+      <nav class="container project__pager" aria-label="More projects">
+        <a class="pager" href={href(`/work/${prev.id}/`)} rel="prev">
+          <span class="label"><Icon name="arrow_back" />Previous</span>
+          <span class="pager__title">{prev.data.title}</span>
+        </a>
+        <a class="pager pager--next" href={href(`/work/${next.id}/`)} rel="next">
+          <span class="label">Next<Icon name="arrow_forward" /></span>
+          <span class="pager__title">{next.data.title}</span>
+        </a>
+      </nav>
+    )}
+  </article>
+</Base>

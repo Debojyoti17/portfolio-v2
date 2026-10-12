@@ -1,0 +1,21 @@
+---
+import { href } from '../lib/url';
+import Base from '../layouts/Base.astro';
+import Stage from '../components/Stage.astro';
+import Icon from '../components/Icon.astro';
+---
+
+<Base title="Page not found" noindex description="This page does not exist.">
+  <Stage slot="stage" mode="fixed" form="noise" />
+  <section class="notfound" data-section data-label="404" data-form="noise" data-sx="0.22" data-so="1">
+    <div class="container">
+      <p class="label">Error · signal not found</p>
+      <h1 class="notfound__code dot" aria-label="404">404</h1>
+      <p class="lead notfound__text">This page does not exist. The cloud could not converge on anything here.</p>
+      <div class="btn-row">
+        <a class="btn btn--solid" href={href('/')}>Back to home<Icon name="arrow_forward" /></a>
+        <a class="btn" href={href('/work/')}>Work</a>
+      </div>
+    </div>
+  </section>
+</Base>

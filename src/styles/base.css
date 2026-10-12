@@ -1,0 +1,236 @@
+/* Reset + element defaults */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--nav-h) + 16px);
+  background: var(--bg);
+}
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  counter-reset: sec;
+}
+img,
+svg,
+canvas,
+video {
+  display: block;
+  max-width: 100%;
+}
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+}
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+[hidden] {
+  display: none !important;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 14px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+
+/* Typography helpers */
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 400;
+}
+.dot {
+  font-family: var(--font-dot);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.lead {
+  font-size: var(--t-lead);
+  line-height: 1.38;
+  letter-spacing: -0.012em;
+  color: var(--fg);
+  text-wrap: pretty;
+}
+.prose {
+  max-width: 62ch;
+  color: var(--fg-2);
+}
+.prose > * + * {
+  margin-top: 1.1em;
+}
+.prose h2 {
+  font-size: var(--t-h3);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--fg);
+  font-weight: 600;
+  margin-top: 2.2em;
+}
+.prose h3 {
+  font-size: 1.15em;
+  color: var(--fg);
+  font-weight: 600;
+  margin-top: 1.8em;
+}
+.prose ul,
+.prose ol {
+  padding-left: 0;
+}
+.prose li {
+  position: relative;
+  padding-left: 1.6em;
+}
+.prose li + li {
+  margin-top: 0.5em;
+}
+.prose ul > li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+}
+.prose ol {
+  counter-reset: li;
+}
+.prose ol > li {
+  counter-increment: li;
+}
+.prose ol > li::before {
+  content: counter(li, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  top: 0.2em;
+  color: var(--muted);
+}
+.prose strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+.prose a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  border: 1px solid var(--rule);
+  padding: 0.05em 0.35em;
+}
+.prose pre {
+  overflow-x: auto;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+}
+.prose pre code {
+  border: 0;
+  padding: 0;
+}
+.prose blockquote {
+  margin-left: 0;
+  padding-left: 20px;
+  border-left: 2px solid var(--accent);
+  color: var(--fg);
+}
+.prose img {
+  height: auto;
+}

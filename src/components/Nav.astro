@@ -1,0 +1,65 @@
+---
+import { siteConfig, features } from '@site';
+import { href, isActive } from '../lib/url';
+import { getNotes } from '../lib/content';
+import Icon from './Icon.astro';
+import ThemeToggle from './ThemeToggle.astro';
+
+const pathname = Astro.url.pathname;
+const notes = await getNotes();
+const items = siteConfig.nav.filter((i) => {
+  if (!i.feature) return true;
+  if (!features[i.feature]) return false;
+  if (i.feature === 'notes') return notes.length > 0;
+  return true;
+});
+---
+
+<header class="nav nav--top" data-nav>
+  <div class="container nav__bar">
+    <a class="nav__brand" href={href('/')} aria-label={`${siteConfig.name} — home`}>
+      <span class="nav__mark" aria-hidden="true">{siteConfig.initials}</span>
+      <span class="nav__brand-name">{siteConfig.name}</span>
+    </a>
+
+    <nav class="nav__links" aria-label="Primary">
+      {items.map((i) => (
+        <a class="nav__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
+          {i.label}
+        </a>
+      ))}
+      <a class="nav__link" href={href('/#contact')}>Contact</a>
+    </nav>
+
+    <div class="nav__actions">
+      <ThemeToggle />
+      <button class="nav__menu-btn" type="button" aria-expanded="false" aria-controls="menu" data-menu-btn>
+        <span data-menu-label>Menu</span>
+        <Icon name="menu" class="icon-open" />
+        <Icon name="close" class="icon-close" />
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="menu" id="menu" data-menu>
+  <nav aria-label="Mobile">
+    <ul class="menu__list">
+      {items.map((i, n) => (
+        <li class="menu__item">
+          <a class="menu__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
+            <span class="dot">{String(n + 1).padStart(2, '0')}</span>{i.label}
+          </a>
+        </li>
+      ))}
+      <li class="menu__item">
+        <a class="menu__link" href={href('/#contact')}>
+          <span class="dot">{String(items.length + 1).padStart(2, '0')}</span>Contact
+        </a>
+      </li>
+    </ul>
+  </nav>
+  <div class="menu__foot">
+    <a class="label link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}</a>
+  </div>
+</div>

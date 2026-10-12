@@ -1,0 +1,4 @@
+Icons in this folder are from Material Symbols (Sharp style, weight 300) by Google,
+distributed on npm as @material-symbols/svg-300.
+Licence: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+Source: https://github.com/marella/material-symbols

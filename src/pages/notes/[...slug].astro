@@ -1,0 +1,47 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { render } from 'astro:content';
+import { siteConfig } from '@site';
+import { href } from '../../lib/url';
+import { getNotes, type Note } from '../../lib/content';
+import Base from '../../layouts/Base.astro';
+import NoteList from '../../components/NoteList.astro';
+import Icon from '../../components/Icon.astro';
+
+// /notes/ and /notes/<slug>/ exist only when the flag is on AND there is at least one published note.
+export const getStaticPaths = (async () => {
+  const notes = await getNotes();
+  if (notes.length === 0) return [];
+  return [
+    { params: { slug: undefined }, props: { kind: 'index' as const, note: undefined } },
+    ...notes.map((note) => ({ params: { slug: note.id }, props: { kind: 'note' as const, note } })),
+  ];
+}) satisfies GetStaticPaths;
+
+const { kind, note } = Astro.props as { kind: 'index' | 'note'; note?: Note };
+const notes = await getNotes();
+const Content = note ? (await render(note)).Content : null;
+const fmt = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+---
+
+{kind === 'index' ? (
+  <Base title="Notes" description={`Notes by ${siteConfig.name}.`} ogImage="/og/notes.png">
+    <header class="container page-head">
+      <p class="label page-head__label appear">Notes</p>
+      <h1 class="page-head__title"><span class="rise"><span>Notes</span></span></h1>
+      <p class="lead page-head__lead appear">Short write-ups on things I have built and read.</p>
+    </header>
+    <section class="container sec sec--flush" aria-label="All notes"><NoteList notes={notes} /></section>
+  </Base>
+) : (
+  <Base title={note!.data.title} description={note!.data.summary} ogType="article">
+    <article class="container note">
+      <header class="page-head note__head">
+        <p class="label page-head__label"><a class="link" href={href('/notes/')}><Icon name="arrow_back" />Notes</a> <span aria-hidden="true">/</span> <time datetime={note!.data.date.toISOString()}>{fmt.format(note!.data.date)}</time></p>
+        <h1 class="project__title">{note!.data.title}</h1>
+        <p class="lead">{note!.data.summary}</p>
+      </header>
+      <div class="prose note__body">{Content && <Content />}</div>
+    </article>
+  </Base>
+)}

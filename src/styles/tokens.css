@@ -1,0 +1,136 @@
+/* ==========================================================================
+   Design tokens — see DESIGN.md. Change values here, not in components.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url('../assets/fonts/InstrumentSans-var.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/IBMPlexMono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/IBMPlexMono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Doto';
+  src: url('../assets/fonts/Doto-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+/* Metric-matched fallback so the swap does not shift layout. */
+@font-face {
+  font-family: 'Instrument Fallback';
+  src: local('Arial');
+  size-adjust: 97%;
+  ascent-override: 96%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Plex Fallback';
+  src: local('Courier New');
+  size-adjust: 100%;
+  ascent-override: 102%;
+  descent-override: 27%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: light;
+
+  /* colour — light */
+  --bg: #eeede8;
+  --bg-2: #e5e4de;
+  --fg: #0c0c0d;
+  --fg-2: #3b3b38;
+  --muted: #5a5a55;
+  --rule: rgb(12 12 13 / 0.16);
+  --rule-strong: rgb(12 12 13 / 0.5);
+  --accent: #e4161f;
+  --accent-text: #c40e18;
+  --on-accent: #ffffff;
+  --stage-ink: #141416;
+
+  /* type */
+  --font-sans: 'Instrument Sans', 'Instrument Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Plex Fallback', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-dot: 'Doto', ui-monospace, monospace;
+
+  --t-mono: clamp(0.6875rem, 0.66rem + 0.1vw, 0.75rem);
+  --t-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --t-body: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --t-lead: clamp(1.1875rem, 1rem + 0.9vw, 1.625rem);
+  --t-h3: clamp(1.375rem, 1.1rem + 1.2vw, 2rem);
+  --t-h2: clamp(2.25rem, 1.2rem + 5vw, 5.5rem);
+  --t-h1: clamp(3rem, 1rem + 9vw, 10rem);
+  --t-name: clamp(3rem, 0.8rem + 12.2vw, 13rem);
+  --t-dot: clamp(0.875rem, 0.8rem + 0.3vw, 1.125rem);
+
+  /* layout */
+  --max: 1760px;
+  --margin: clamp(16px, 4vw, 56px);
+  --gutter: clamp(12px, 1.6vw, 24px);
+  --nav-h: 56px;
+  --space-section: clamp(96px, 14vw, 224px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
+  --dur-micro: 150ms;
+  --dur-ui: 300ms;
+  --dur-reveal: 900ms;
+}
+
+/* colour — dark: follows the system unless the visitor picked a theme */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b0b0c;
+    --bg-2: #141416;
+    --fg: #eeede8;
+    --fg-2: #c9c8c2;
+    --muted: #9c9b95;
+    --rule: rgb(238 237 232 / 0.16);
+    --rule-strong: rgb(238 237 232 / 0.5);
+    --accent: #ff4638;
+    --accent-text: #ff5d50;
+    --on-accent: #0b0b0c;
+    --stage-ink: #eeede8;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0b0c;
+  --bg-2: #141416;
+  --fg: #eeede8;
+  --fg-2: #c9c8c2;
+  --muted: #9c9b95;
+  --rule: rgb(238 237 232 / 0.16);
+  --rule-strong: rgb(238 237 232 / 0.5);
+  --accent: #ff4638;
+  --accent-text: #ff5d50;
+  --on-accent: #0b0b0c;
+  --stage-ink: #eeede8;
+}

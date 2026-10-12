@@ -1,0 +1,59 @@
+---
+import { siteConfig } from '@site';
+import { href } from '../lib/url';
+import { getProjects } from '../lib/content';
+import SectionHead from '../components/SectionHead.astro';
+import Icon from '../components/Icon.astro';
+
+const projects = await getProjects();
+const items = siteConfig.interests.map((i) => ({
+  ...i,
+  count: projects.filter((p) => p.data.tags.includes(i.tag)).length,
+}));
+const forms = ['scene', 'leaf', 'graph', 'erase', 'tree', 'grid'];
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+{items.length > 0 && (
+  <section class="sec focus" id="focus" aria-labelledby="focus-title" data-section data-numbered data-label="Research focus">
+    <div class="container">
+      <div class="focus__track" style={`--n:${items.length}`} data-focus>
+        <div class="focus__sticky">
+          <SectionHead label="Research" title="What I work on" id="focus-title" />
+          <ol class="focus__list">
+            {items.map((it, i) => (
+              <li class="focus__item" data-focus-item>
+                <span class="dot focus__idx" aria-hidden="true">{pad(i + 1)}</span>
+                <div class="focus__main">
+                  <h3 class="focus__line">{it.title}</h3>
+                  <div class="focus__body">
+                    <div>
+                      <p class="focus__note">{it.note}</p>
+                      {it.count > 0 && (
+                        <p class="focus__link">
+                          <a class="link label" href={href(`/work/?tag=${encodeURIComponent(it.tag)}`)}>
+                            {it.count} {it.count === 1 ? 'project' : 'projects'}<Icon name="arrow_forward" />
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        {items.map((it, i) => (
+          <div
+            class="focus__anchor"
+            style={`--i:${i}`}
+            data-form={forms[i % forms.length]}
+            data-sx={i === 0 ? '0.26' : '0.28'}
+            data-so={i === 0 ? '0.9' : '0.8'}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+)}

@@ -1,0 +1,57 @@
+---
+import { siteConfig } from '@site';
+import { href } from '../lib/url';
+import { hasCV } from '../lib/site';
+import { getProjects } from '../lib/content';
+import Icon from '../components/Icon.astro';
+
+const projects = await getProjects();
+const hasContact = siteConfig.homeSections.includes('contact');
+const words = siteConfig.name.split(' ');
+---
+
+<section
+  class="hero"
+  id="hero"
+  aria-labelledby="hero-title"
+  data-section
+  data-label="Introduction"
+  data-form="scene"
+  data-sx="0.24"
+  data-so="1"
+>
+  <div class="container hero__inner">
+    <div class="hero__top">
+      <p class="label hero__kicker">Portfolio · Computer science, machine learning, web</p>
+      <p class="label hero__readout" aria-hidden="true">
+        <span data-readout-form>Form 01 — Captured scene</span>
+        <span class="dot" data-readout-count></span>
+      </p>
+    </div>
+
+    <div>
+      <h1 class="hero__name" id="hero-title">
+        <span class="sr-only">{siteConfig.name}</span>
+        <span aria-hidden="true">
+          {words.map((w, i) => (
+            <span class="line"><span style={`--i:${i}`}>{w}{i === words.length - 1 && <span class="hero__stop"></span>}</span></span>
+          ))}
+        </span>
+      </h1>
+
+      <div class="hero__row">
+        <p class="lead hero__tagline">{siteConfig.tagline}</p>
+        <div class="hero__actions">
+          {siteConfig.status && <p class="label">{siteConfig.status}</p>}
+          <div class="btn-row">
+            {projects.length > 0 && (
+              <a class="btn btn--solid" href={href('/work/')}>Selected work<Icon name="arrow_forward" /></a>
+            )}
+            {hasContact && <a class="btn" href={href('/#contact')}>Contact</a>}
+            {hasCV && <a class="btn" href={href(siteConfig.files.cv)} download>Download CV<Icon name="download" /></a>}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

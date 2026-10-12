@@ -1,0 +1,31 @@
+---
+import { siteConfig, features } from '@site';
+import { getContributions } from '../lib/github';
+import SectionHead from '../components/SectionHead.astro';
+import Icon from '../components/Icon.astro';
+
+const data = features.githubGraph ? await getContributions(siteConfig.githubUser) : null;
+const profile = siteConfig.social.github;
+---
+
+{data && (
+  <section class="sec" id="github" aria-labelledby="github-title" data-section data-numbered data-label="Activity">
+    <div class="container">
+      <SectionHead label="Activity" title="Contributions on GitHub" id="github-title" />
+      <div class="gh" role="img" aria-label={`${data.total} public contributions over the last year`}>
+        <div class="gh__grid" data-reveal="fade">
+          {data.weeks.map((w) => w.map((d) => (d ? <i class="gh__cell" data-l={d.level} title={`${d.count} on ${d.date}`}></i> : <i class="gh__cell" style="background:none"></i>)))}
+        </div>
+      </div>
+      <div class="gh__legend label">
+        <span>Less</span>
+        {[0, 1, 2, 3, 4].map((l) => <i class="gh__cell" data-l={l}></i>)}
+        <span>More</span>
+      </div>
+      <div class="section-foot">
+        <p class="label">{data.total.toLocaleString('en-GB')} contributions in the last year</p>
+        {profile && <a class="link label" href={profile} rel="noopener me">View profile<Icon name="arrow_outward" /></a>}
+      </div>
+    </div>
+  </section>
+)}

@@ -1,0 +1,25 @@
+---
+import { href } from '../lib/url';
+import { getFeaturedProjects, getProjects } from '../lib/content';
+import SectionHead from '../components/SectionHead.astro';
+import ProjectRow from '../components/ProjectRow.astro';
+import Icon from '../components/Icon.astro';
+
+const featured = await getFeaturedProjects();
+const all = await getProjects();
+---
+
+{featured.length > 0 && (
+  <section class="sec" id="work" aria-labelledby="work-title" data-section data-numbered data-label="Selected work" data-form="erase" data-sx="0.26" data-so="0.55">
+    <div class="container">
+      <SectionHead label="Selected work" title="Research and projects" id="work-title" />
+      <ul class="rows">
+        {featured.map((p, i) => <ProjectRow project={p} index={i} />)}
+      </ul>
+      <div class="section-foot">
+        <p class="label">Hover a project to reshape the field</p>
+        <a class="btn" href={href('/work/')}>All work{all.length > featured.length ? ` (${all.length})` : ''}<Icon name="arrow_forward" /></a>
+      </div>
+    </div>
+  </section>
+)}

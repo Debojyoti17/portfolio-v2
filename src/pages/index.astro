@@ -1,0 +1,26 @@
+---
+import { siteConfig } from '@site';
+import Base from '../layouts/Base.astro';
+import Stage from '../components/Stage.astro';
+import { homeSections } from '../lib/sections';
+import { socialLinks } from '../lib/site';
+import { absolute } from '../lib/url';
+
+const sections = homeSections();
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: siteConfig.name,
+  url: absolute('/', Astro.site),
+  jobTitle: 'B.Tech Computer Science student',
+  email: `mailto:${siteConfig.email}`,
+  description: siteConfig.tagline,
+  alumniOf: { '@type': 'CollegeOrUniversity', name: 'Vellore Institute of Technology' },
+  sameAs: socialLinks.map((s) => s.url),
+};
+---
+
+<Base hud jsonLd={jsonLd}>
+  <Stage slot="stage" mode="fixed" form="scene" />
+  {sections.map(({ Component }) => <Component />)}
+</Base>

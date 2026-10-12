@@ -1,0 +1,77 @@
+---
+import { siteConfig, features } from '@site';
+import { href } from '../lib/url';
+import { socialLinks, hasCV, placeReadout } from '../lib/site';
+import { getProjects, getNotes } from '../lib/content';
+import Icon from './Icon.astro';
+
+const projects = await getProjects();
+const notes = await getNotes();
+const year = new Date().getFullYear();
+const index = [
+  { label: 'Home', href: '/' },
+  { label: 'Work', href: '/work/' },
+  { label: 'About', href: '/about/' },
+  ...(features.notes && notes.length ? [{ label: 'Notes', href: '/notes/' }] : []),
+  { label: 'Contact', href: '/#contact' },
+];
+const initials = siteConfig.initials;
+---
+
+<footer class="footer" data-footer>
+  <div class="container">
+    <div class="grid footer__grid">
+      <div class="footer__about">
+        <p class="label footer__title">Contact</p>
+        <p class="lead footer__lead">{siteConfig.tagline}</p>
+        <p style="margin-top:20px">
+          <a class="link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}<Icon name="arrow_outward" /></a>
+        </p>
+      </div>
+
+      <nav class="footer__col" aria-label="Site">
+        <p class="label footer__title">Index</p>
+        <ul class="footer__list">
+          {index.map((i) => <li><a class="link" href={href(i.href)}>{i.label}</a></li>)}
+        </ul>
+      </nav>
+
+      {projects.length > 0 && (
+        <nav class="footer__col footer__col--wide" aria-label="Projects">
+          <p class="label footer__title">Projects</p>
+          <ul class="footer__list">
+            {projects.map((p) => <li><a class="link" href={href(`/work/${p.id}/`)}>{p.data.title}</a></li>)}
+          </ul>
+        </nav>
+      )}
+
+      {(socialLinks.length > 0 || hasCV) && (
+        <div class="footer__col">
+          <p class="label footer__title">Elsewhere</p>
+          <ul class="footer__list">
+            {socialLinks.map((s) => (
+              <li><a class="link" href={s.url} rel="noopener me">{s.label}<Icon name="arrow_outward" /></a></li>
+            ))}
+            {hasCV && <li><a class="link" href={href(siteConfig.files.cv)} download>CV (PDF)<Icon name="download" /></a></li>}
+          </ul>
+        </div>
+      )}
+    </div>
+
+    <p class="footer__mono" aria-hidden="true">{initials}<span>.</span></p>
+
+    <div class="footer__base">
+      <p class="label">
+        <span>© {year} {siteConfig.name}</span>
+        {siteConfig.place && <span>{siteConfig.place.label} <span data-clock data-tz={siteConfig.place.timeZone}></span></span>}
+        {placeReadout && <span class="footer__coords">{placeReadout}</span>}
+      </p>
+      <p class="label">
+        <a class="link" href="#top" data-top>Back to top</a>
+      </p>
+    </div>
+    <p class="label" style="padding-bottom:var(--space-6);opacity:.9">
+      Set in Instrument Sans, IBM Plex Mono and Doto. Built with Astro. No cookies, no tracking.
+    </p>
+  </div>
+</footer>

@@ -1,0 +1,320 @@
+/* Reusable UI parts */
+
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size var(--dur-ui) var(--ease-out);
+}
+.link:hover {
+  background-size: 0 1px;
+  background-position: 100% 100%;
+}
+.link .icon {
+  width: 1.1em;
+  height: 1.1em;
+  transition: transform var(--dur-ui) var(--ease-out);
+}
+.link:hover .icon {
+  transform: translate(2px, -2px);
+}
+
+.btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg);
+  transition: color var(--dur-ui) var(--ease-out);
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--fg);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--dur-ui) var(--ease-out);
+}
+.btn:hover {
+  color: var(--bg);
+}
+.btn:hover::before {
+  transform: scaleY(1);
+}
+.btn .icon {
+  width: 18px;
+  height: 18px;
+}
+.btn--solid {
+  background: var(--fg);
+  color: var(--bg);
+}
+.btn--solid::before {
+  background: var(--accent);
+}
+.btn--solid:hover {
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-dot);
+  font-weight: 700;
+  font-size: var(--t-dot);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.status::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+
+/* section header: hairline, index (CSS counter), label, title */
+.sec {
+  position: relative;
+  z-index: 1;
+  padding-block: var(--space-section);
+}
+.sec[data-numbered] {
+  counter-increment: sec;
+}
+.sec-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: var(--space-5);
+  padding-top: var(--space-4);
+  margin-bottom: clamp(40px, 6vw, 96px);
+}
+.sec-head::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--rule-strong);
+  transform-origin: left;
+  transform: scaleX(var(--rule-draw, 1));
+}
+.sec-head__meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.sec-head__idx::before {
+  content: counter(sec, decimal-leading-zero);
+}
+.sec-head__idx {
+  font-family: var(--font-dot);
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--fg);
+  letter-spacing: 0.04em;
+}
+.sec-head__title {
+  grid-column: 1 / -1;
+  font-size: var(--t-h2);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.sec-head__aside {
+  grid-column: 1 / -1;
+  max-width: 44ch;
+  color: var(--fg-2);
+}
+@media (min-width: 900px) {
+  .sec-head__meta {
+    grid-column: 1 / span 3;
+  }
+  .sec-head__title {
+    grid-column: 4 / -1;
+  }
+  .sec-head__aside {
+    grid-column: 4 / span 6;
+  }
+}
+
+/* registration marks */
+.marks {
+  position: relative;
+}
+.marks::before,
+.marks::after {
+  content: '+';
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  pointer-events: none;
+}
+.marks::before {
+  top: -7px;
+  left: -4px;
+}
+.marks::after {
+  bottom: -7px;
+  right: -4px;
+}
+
+/* icon */
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex: none;
+}
+
+/* ---- reveal system (only when motion is allowed AND the script is running) ---- */
+html.motion.motion-ready [data-reveal='rule'] {
+  --rule-draw: 0;
+}
+html.motion.motion-ready [data-reveal='wipe'] {
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(24px);
+}
+html.motion.motion-ready [data-reveal='fade'] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+html.motion.motion-ready .w > .wi {
+  transform: translateY(108%);
+}
+.w {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.wi {
+  display: inline-block;
+  will-change: transform;
+}
+[data-reveal].is-revealed,
+.wi.is-revealed {
+  clip-path: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  --rule-draw: 1;
+}
+html.motion-failed [data-reveal],
+html.motion-failed .w > .wi {
+  clip-path: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  --rule-draw: 1 !important;
+}
+
+/* ---- page transition ---- */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: vt-out 0.4s var(--ease-in-out) both;
+  }
+  ::view-transition-new(root) {
+    animation: vt-in 0.85s var(--ease-out) 0.1s both;
+  }
+  ::view-transition-group(site-nav) {
+    animation-duration: 0s;
+  }
+}
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+@keyframes vt-in {
+  from {
+    clip-path: inset(100% 0 0 0);
+    transform: translateY(18px);
+  }
+  to {
+    clip-path: inset(0);
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* CSS-only entrances for above-the-fold text (no JS dependency, no flash) */
+.rise {
+  display: block;
+  overflow: hidden;
+  padding: 0.06em 0.1em 0.2em 0.05em;
+  margin: -0.06em -0.1em -0.2em -0.05em;
+}
+.rise > span {
+  display: block;
+  animation: rise 1s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 100ms + 80ms);
+}
+.appear {
+  animation: appear 0.9s var(--ease-out) 0.35s both;
+}

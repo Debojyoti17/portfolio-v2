@@ -1,0 +1,88 @@
+---
+import { href } from '../../lib/url';
+import { projectForm, countBy, type Project } from '../../lib/content';
+import StatusTag from '../StatusTag.astro';
+import StaticField from '../StaticField.astro';
+import { Image } from 'astro:assets';
+import Icon from '../Icon.astro';
+
+interface Props {
+  projects: Project[];
+}
+const { projects } = Astro.props;
+const tags = countBy(projects, (p) => p.data.tags);
+const statuses = countBy(projects, (p) => [p.data.status]);
+const slots = ['a', 'b', 'c', 'd'];
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+<header class="container page-head">
+  <p class="label page-head__label appear">Work</p>
+  <h1 class="page-head__title"><span class="rise"><span>Work</span></span></h1>
+  <p class="lead page-head__lead appear">Research and projects. Each one has its own page.</p>
+</header>
+
+<section class="container work-index" aria-label="Projects">
+  {(tags.length > 1 || statuses.length > 1) && (
+    <div class="filters" data-filters>
+      <div class="filters__bar">
+        {tags.length > 1 && (
+          <div class="filters__group" role="group" aria-labelledby="f-topic">
+            <p class="label" id="f-topic">Topic</p>
+            <div class="chips">
+              <button type="button" class="chip" aria-pressed="true" data-filter="tag" data-value="">All<span>{projects.length}</span></button>
+              {tags.map(([t, n]) => (
+                <button type="button" class="chip" aria-pressed="false" data-filter="tag" data-value={t}>{t}<span>{n}</span></button>
+              ))}
+            </div>
+          </div>
+        )}
+        {statuses.length > 1 && (
+          <div class="filters__group" role="group" aria-labelledby="f-status">
+            <p class="label" id="f-status">Status</p>
+            <div class="chips">
+              <button type="button" class="chip" aria-pressed="true" data-filter="status" data-value="">All<span>{projects.length}</span></button>
+              {statuses.map(([s, n]) => (
+                <button type="button" class="chip" aria-pressed="false" data-filter="status" data-value={s}>{s}<span>{n}</span></button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <p class="label filters__count" role="status" aria-live="polite" data-filter-count>{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
+    </div>
+  )}
+
+  <ul class="plates" data-plates>
+    {projects.map((p, i) => (
+      <li
+        class="plates__item"
+        data-slot={slots[i % 4]}
+        data-tags={p.data.tags.join('|')}
+        data-status={p.data.status}
+        data-reveal="wipe"
+      >
+        <a class="pl" href={href(`/work/${p.id}/`)}>
+          <div class="pl__media marks">
+            {p.data.cover ? (
+              <Image src={p.data.cover} alt={p.data.coverAlt ?? ''} widths={[480, 800, 1200]} sizes="(min-width: 900px) 55vw, 100vw" class="pl__img" loading="lazy" />
+            ) : (
+              <StaticField form={projectForm(p)} count={900} class="pl__field" yaw={-0.5 + (i % 3) * 0.25} />
+            )}
+            <span class="pl__idx dot" aria-hidden="true">{pad(i + 1)}</span>
+          </div>
+          <div class="pl__meta">
+            <StatusTag status={p.data.status} />
+          </div>
+          <h2 class="pl__title">{p.data.title}</h2>
+          <p class="pl__sum">{p.data.summary}</p>
+          {p.data.tags.length > 0 && (
+            <ul class="tags" aria-label="Topics">
+              {p.data.tags.map((t) => <li class="tag">{t}</li>)}
+            </ul>
+          )}
+        </a>
+      </li>
+    ))}
+  </ul>
+</section>

@@ -1,0 +1,14 @@
+---
+import { siteConfig } from '@site';
+import SectionHead from '../components/SectionHead.astro';
+import SkillsSheet from '../components/SkillsSheet.astro';
+---
+
+{siteConfig.skills.some((g) => g.items.length) && (
+  <section class="sec" id="stack" aria-labelledby="stack-title" data-section data-numbered data-label="Skills" data-form="grid" data-sx="0.3" data-so="0.45">
+    <div class="container">
+      <SectionHead label="Skills" title="Tools I work with" id="stack-title" />
+      <SkillsSheet />
+    </div>
+  </section>
+)}

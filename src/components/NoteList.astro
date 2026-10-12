@@ -1,0 +1,24 @@
+---
+import { href } from '../lib/url';
+import type { Note } from '../lib/content';
+interface Props {
+  notes: Note[];
+}
+const { notes } = Astro.props;
+const fmt = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC' });
+---
+
+<ul class="list">
+  {notes.map((n) => (
+    <li class="list__item" data-reveal="fade">
+      <a class="list__link" href={href(`/notes/${n.id}/`)}>
+        <p class="label list__meta"><time datetime={n.data.date.toISOString()}>{fmt.format(n.data.date)}</time></p>
+        <div class="list__main">
+          <h3 class="list__title">{n.data.title}</h3>
+          <p class="list__sum">{n.data.summary}</p>
+        </div>
+        {n.data.tags.length > 0 && <p class="list__aside label">{n.data.tags.join(' · ')}</p>}
+      </a>
+    </li>
+  ))}
+</ul>

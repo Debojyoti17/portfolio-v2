@@ -1,0 +1,26 @@
+---
+/**
+ * Inline SVG icon from src/assets/icons (Material Symbols Sharp, Apache-2.0).
+ * To add an icon: copy its SVG into src/assets/icons and use <Icon name="file_name" />.
+ */
+interface Props {
+  name: string;
+  class?: string;
+  label?: string;
+}
+const { name, class: className = '', label } = Astro.props;
+const files = import.meta.glob('../assets/icons/*.svg', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const raw = files[`../assets/icons/${name}.svg`];
+if (!raw) throw new Error(`Icon "${name}" not found in src/assets/icons`);
+const inner = raw.replace(/<svg[^>]*>/, '').replace('</svg>', '');
+---
+
+<svg
+  class={`icon ${className}`.trim()}
+  viewBox="0 -960 960 960"
+  aria-hidden={label ? undefined : 'true'}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  focusable="false"
+  set:html={inner}
+/>

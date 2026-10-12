@@ -1,0 +1,116 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import { siteConfig, features } from '@site';
+import { absolute, href } from '../lib/url';
+import { socialLinks } from '../lib/site';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/layout.css';
+import '../styles/ui.css';
+import '../styles/sections.css';
+import '../styles/pages.css';
+import sansUrl from '../assets/fonts/InstrumentSans-var.woff2?url';
+import monoUrl from '../assets/fonts/IBMPlexMono-400.woff2?url';
+import dotUrl from '../assets/fonts/Doto-var.woff2?url';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Path of the social image, relative to the site root, e.g. "/og/work.png". */
+  ogImage?: string;
+  ogType?: 'website' | 'article';
+  /** Force noindex for this page (e.g. 404). */
+  noindex?: boolean;
+  /** Show the scroll/section readout. */
+  hud?: boolean;
+  /** JSON-LD object to embed. */
+  jsonLd?: Record<string, unknown>;
+}
+const {
+  title,
+  description = siteConfig.description,
+  ogImage = '/og/default.png',
+  ogType = 'website',
+  noindex = false,
+  hud = false,
+  jsonLd,
+} = Astro.props;
+
+const fullTitle = title ? `${title} — ${siteConfig.name}` : `${siteConfig.name} — Computer science, machine learning, web`;
+const canonical = absolute(Astro.url.pathname.replace(import.meta.env.BASE_URL, '/'), Astro.site);
+const ogUrl = absolute(ogImage, Astro.site);
+const robots = __NOINDEX__ || noindex ? 'noindex, nofollow' : 'index, follow';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#eeede8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0b0c" media="(prefers-color-scheme: dark)" />
+    <meta name="author" content={siteConfig.name} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={href('/favicon.svg')} type="image/svg+xml" />
+    <link rel="preload" href={sansUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={dotUrl} as="font" type="font/woff2" crossorigin />
+
+    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogUrl} />
+
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+
+    <!-- Theme + capability flags before first paint (no flash). -->
+    <script is:inline>
+      (function () {
+        var d = document.documentElement;
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+        } catch (e) {}
+        d.classList.add('js');
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) d.classList.add('motion');
+      })();
+    </script>
+    <ClientRouter />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="guides" aria-hidden="true"><div class="container"><i></i><i></i><i></i><i></i></div></div>
+    <Nav />
+    <slot name="stage" />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <Footer />
+    {hud && (
+      <div class="hud" aria-hidden="true" data-hud>
+        <div class="container hud__bar">
+          <span>Scroll<b data-hud-scroll>000</b></span>
+          <span class="hud__sec"><span data-hud-label>—</span><b data-hud-index>01</b></span>
+        </div>
+        <span class="hud__line" data-hud-line></span>
+      </div>
+    )}
+    <script>
+      import '../scripts/client';
+    </script>
+  </body>
+</html>

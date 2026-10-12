@@ -1,0 +1,32 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { render } from 'astro:content';
+import { getProjects, projectForm, countBy, type Project } from '../../lib/content';
+import WorkIndex from '../../components/pages/WorkIndex.astro';
+import ProjectPage from '../../components/pages/ProjectPage.astro';
+import Base from '../../layouts/Base.astro';
+import { siteConfig } from '@site';
+
+export const getStaticPaths = (async () => {
+  const projects = await getProjects();
+  if (projects.length === 0) return [];
+  return [
+    { params: { slug: undefined }, props: { kind: 'index' as const, project: undefined, index: 0 } },
+    ...projects.map((project, index) => ({
+      params: { slug: project.id },
+      props: { kind: 'project' as const, project, index },
+    })),
+  ];
+}) satisfies GetStaticPaths;
+
+const { kind, project, index } = Astro.props as { kind: 'index' | 'project'; project?: Project; index: number };
+const projects = await getProjects();
+---
+
+{kind === 'index' ? (
+  <Base title="Work" description={`Research and projects by ${siteConfig.name}.`} ogImage="/og/work.png">
+    <WorkIndex projects={projects} />
+  </Base>
+) : (
+  <ProjectPage project={project!} projects={projects} index={index} />
+)}

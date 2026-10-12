@@ -1,0 +1,22 @@
+---
+/**
+ * The 3D signature element. `mode="fixed"` is the full-viewport scroll-morphing
+ * field (home, 404); `mode="inline"` is a framed viewport (project pages).
+ * The static SVG is server-rendered, so the page is complete before any JS runs.
+ */
+import StaticField from './StaticField.astro';
+import type { FormName } from '../scripts/stage/forms';
+
+interface Props {
+  mode?: 'fixed' | 'inline';
+  form?: FormName;
+  /** inline mode only */
+  class?: string;
+}
+const { mode = 'fixed', form = 'scene', class: className = '' } = Astro.props;
+---
+
+<div class={`stage stage--${mode} ${className}`.trim()} data-stage={mode} data-stage-form={form} aria-hidden="true">
+  <StaticField form={form} class="stage__static" count={mode === 'fixed' ? 1500 : 900} />
+  <canvas class="stage__canvas" data-stage-canvas></canvas>
+</div>

@@ -1,0 +1,15 @@
+---
+import { getPublications } from '../lib/content';
+import SectionHead from '../components/SectionHead.astro';
+import PublicationList from '../components/PublicationList.astro';
+const items = await getPublications();
+---
+
+{items.length > 0 && (
+  <section class="sec" id="publications" aria-labelledby="pub-title" data-section data-numbered data-label="Publications">
+    <div class="container">
+      <SectionHead label="Publications" title="Papers" id="pub-title" />
+      <PublicationList items={items} />
+    </div>
+  </section>
+)}

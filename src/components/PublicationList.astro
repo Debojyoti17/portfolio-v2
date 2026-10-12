@@ -1,0 +1,30 @@
+---
+import Icon from './Icon.astro';
+import type { Publication } from '../lib/content';
+interface Props {
+  items: Publication[];
+}
+const { items } = Astro.props;
+---
+
+<ul class="list">
+  {items.map((p) => (
+    <li class="list__item" data-reveal="fade">
+      <div class="list__static">
+        <p class="label list__meta">{p.data.year}{p.data.status ? ` · ${p.data.status}` : ''}</p>
+        <div class="list__main">
+          <h3 class="list__title">{p.data.title}</h3>
+          <p class="list__sum">{p.data.authors.join(', ')}</p>
+          <p class="label">{p.data.venue}</p>
+        </div>
+        {p.data.links && (p.data.links.paper || p.data.links.code || p.data.links.doi) && (
+          <p class="list__aside" style="display:flex;gap:16px;flex-wrap:wrap">
+            {p.data.links.paper && <a class="link label" href={p.data.links.paper} rel="noopener">Paper<Icon name="arrow_outward" /></a>}
+            {p.data.links.code && <a class="link label" href={p.data.links.code} rel="noopener">Code<Icon name="arrow_outward" /></a>}
+            {p.data.links.doi && <a class="link label" href={p.data.links.doi} rel="noopener">DOI<Icon name="arrow_outward" /></a>}
+          </p>
+        )}
+      </div>
+    </li>
+  ))}
+</ul>

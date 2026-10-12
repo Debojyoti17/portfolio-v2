@@ -1,0 +1,19 @@
+---
+import { siteConfig } from '@site';
+const groups = siteConfig.skills.filter((g) => g.items.length > 0);
+---
+
+{groups.length > 0 && (
+  <dl class="spec">
+    {groups.map((g) => (
+      <div class="spec__row" data-reveal="fade">
+        <dt class="spec__group">{g.group}</dt>
+        <dd>
+          <ul class="spec__items">
+            {g.items.map((i) => <li>{i}</li>)}
+          </ul>
+        </dd>
+      </div>
+    ))}
+  </dl>
+)}
