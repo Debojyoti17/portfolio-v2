@@ -246,3 +246,18 @@ with base `/` is a configuration change only.
 
 No analytics, no tracking, no cookies, no third-party requests at runtime. The optional GitHub
 graph is fetched at **build time** only.
+
+---
+
+## 15. Deviations and additions made during the build
+
+* **Scroll readout (HUD):** a slim solid bar on the home page only (scroll percentage, section label and
+  `NN/NN` index; the hero is `00`). It shows real values only and is hidden under reduced motion.
+* **Phones:** the live field starts on first touch/scroll (or after 9 s); the identical SVG render is shown
+  until then. Desktop starts it when the browser is idle. This keeps mobile Lighthouse at 99+ with
+  software WebGL.
+* **Section index numbers** are CSS counters (`data-numbered`), so hiding a section renumbers the rest.
+* **Hover morph:** any element with `data-hover-form="leaf"` (etc.) reshapes the field on hover/focus.
+* **Mobile filters** scroll horizontally instead of wrapping to keep the first screen useful.
+* **404** uses the noise form: the field never converges.
+* **Contrast:** lowest measured pair is red text on the panel colour in light mode (4.82 : 1).
