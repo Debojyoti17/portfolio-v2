@@ -59,8 +59,9 @@ export async function mountStages(): Promise<() => void> {
 }
 
 async function mountStage(root: HTMLElement): Promise<() => void> {
-  const canvas = root.querySelector<HTMLCanvasElement>('[data-stage-canvas]');
-  if (!canvas) return () => {};
+  const canvasEl = root.querySelector<HTMLCanvasElement>('[data-stage-canvas]');
+  if (!canvasEl) return () => {};
+  const canvas: HTMLCanvasElement = canvasEl;
   const fixed = root.dataset.stage === 'fixed';
   const small = matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
   const count = fixed ? (small ? 6500 : 16000) : small ? 4500 : 9000;

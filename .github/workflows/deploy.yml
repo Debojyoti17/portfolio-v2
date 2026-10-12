@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# Configure the deployment target with repository *variables*
+# (Settings → Secrets and variables → Actions → Variables). All optional:
+#   SITE_URL   default https://debojyoti17.github.io
+#   BASE_PATH  default /portfolio-v2/   (set to "/" when moving to the root site)
+#   NOINDEX    default: true unless BASE_PATH is "/"
+env:
+  SITE_URL: ${{ vars.SITE_URL || 'https://debojyoti17.github.io' }}
+  BASE_PATH: ${{ vars.BASE_PATH || '/portfolio-v2/' }}
+  NOINDEX: ${{ vars.NOINDEX }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm run links
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

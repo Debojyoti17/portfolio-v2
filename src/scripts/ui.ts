@@ -23,7 +23,7 @@ function effectiveTheme(): 'light' | 'dark' {
 
 export function initUI(): Cleanup {
   const cleanups: Cleanup[] = [];
-  const on = <K extends keyof HTMLElementEventMap>(el: EventTarget | null, ev: string, fn: EventListener, opts?: AddEventListenerOptions) => {
+  const on = (el: EventTarget | null, ev: string, fn: EventListener, opts?: AddEventListenerOptions) => {
     if (!el) return;
     el.addEventListener(ev, fn, opts);
     cleanups.push(() => el.removeEventListener(ev, fn, opts));
