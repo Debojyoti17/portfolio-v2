@@ -8,3 +8,7 @@ dist/
 .cache/
 .shots/
 .lighthouse/
+.shots*.log
+.lh-*.log
+.preview.log
+.tmp*

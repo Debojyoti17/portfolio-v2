@@ -36,7 +36,8 @@ export function parseContributions(html: string): Contributions | null {
   }
   const filled = weeks.filter(Boolean);
   if (!filled.length) return null;
-  const total = filled.flat().reduce((s, d) => s + (d?.count ?? 0), 0);
+  const header = /([\d,]+)\s+contributions?\s+in\s+the\s+last\s+year/i.exec(html);
+  const total = header ? parseInt(header[1].replace(/,/g, ''), 10) : filled.flat().reduce((s, d) => s + (d?.count ?? 0), 0);
   return { total, weeks: filled };
 }
 

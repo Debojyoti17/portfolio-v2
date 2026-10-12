@@ -84,7 +84,7 @@
   --margin: clamp(16px, 4vw, 56px);
   --gutter: clamp(12px, 1.6vw, 24px);
   --nav-h: 56px;
-  --space-section: clamp(96px, 14vw, 224px);
+  --space-section: clamp(80px, 10vw, 168px);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

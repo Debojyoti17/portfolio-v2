@@ -1,13 +1,15 @@
 ---
 import { siteConfig, features } from '@site';
 import { href, isActive } from '../lib/url';
-import { getNotes } from '../lib/content';
+import { getNotes, getProjects } from '../lib/content';
 import Icon from './Icon.astro';
 import ThemeToggle from './ThemeToggle.astro';
 
 const pathname = Astro.url.pathname;
 const notes = await getNotes();
+const projects = await getProjects();
 const items = siteConfig.nav.filter((i) => {
+  if (i.href === '/work/' && projects.length === 0) return false;
   if (!i.feature) return true;
   if (!features[i.feature]) return false;
   if (i.feature === 'notes') return notes.length > 0;

@@ -331,7 +331,7 @@ async function mountStage(root: HTMLElement): Promise<() => void> {
       uniforms.uOffset.value.set(0, 0);
     }
     uniforms.uScale.value = scale;
-    uniforms.uOpacity.value = Math.min(1, so + hoverValue * 0.5) * (portrait && fixed ? 0.75 : 1);
+    uniforms.uOpacity.value = Math.min(1, so + hoverValue * 0.5) * (portrait && fixed ? (so >= 0.9 ? 0.8 : 0.5) : 1);
 
     // pointer smoothing
     pointer.x += (pointer.tx - pointer.x) * 0.14;
