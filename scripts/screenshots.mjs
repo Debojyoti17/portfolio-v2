@@ -9,6 +9,8 @@ const out = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? '.shots/ro
 const base = args.base ?? '/portfolio-v2/';
 const port = args.port ?? '4321';
 const only = args.only?.split(',');
+const onlySizes = args.sizes?.split(',');
+const onlySchemes = args.schemes?.split(',') ?? ['light', 'dark'];
 const origin = `http://localhost:${port}`;
 const exe = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
@@ -33,8 +35,9 @@ const browser = await chromium.launch({
 
 for (const [name, p] of pages) {
   if (only && !only.includes(name)) continue;
-  for (const scheme of ['light', 'dark']) {
+  for (const scheme of onlySchemes) {
     for (const [sz, vp, dsf] of sizes) {
+      if (onlySizes && !onlySizes.includes(sz)) continue;
       const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: dsf > 1 ? 1 : 1, colorScheme: scheme, hasTouch: sz === '390', isMobile: sz === '390' });
       const page = await ctx.newPage();
       const errors = [];

@@ -17,9 +17,9 @@ const items = siteConfig.nav.filter((i) => {
 
 <header class="nav nav--top" data-nav>
   <div class="container nav__bar">
-    <a class="nav__brand" href={href('/')} aria-label={`${siteConfig.name} — home`}>
-      <span class="nav__mark" aria-hidden="true">{siteConfig.initials}</span>
-      <span class="nav__brand-name">{siteConfig.name}</span>
+    <a class="nav__brand" href={href('/')}>
+      <span class="nav__mark">{siteConfig.initials}</span><span class="sr-only"> {siteConfig.name}, home</span>
+      <span class="nav__brand-name" aria-hidden="true">{siteConfig.name}</span>
     </a>
 
     <nav class="nav__links" aria-label="Primary">

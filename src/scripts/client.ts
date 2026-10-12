@@ -33,7 +33,7 @@ function boot() {
   });
 
   if (needsStage && !reduce) {
-    idle(async () => {
+    const start = async () => {
       if (gen !== generation) return;
       try {
         const { mountStages } = await import('./stage/stage');
@@ -43,7 +43,27 @@ function boot() {
       } catch (err) {
         console.warn('[stage] static fallback in use:', err);
       }
-    }, 2000);
+    };
+    const constrained = matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
+    if (!constrained) {
+      idle(start, 2000);
+    } else {
+      // Phones: the static render is already on screen. Bring the live field in on the
+      // first touch / scroll / key press (or after a while), so first load stays light.
+      let fired = false;
+      const go = () => {
+        if (fired) return;
+        fired = true;
+        ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach((e) => window.removeEventListener(e, go));
+        idle(start, 1500);
+      };
+      ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach((e) => window.addEventListener(e, go, { passive: true, once: true }));
+      window.setTimeout(go, 9000);
+      cleanups.push(() => {
+        fired = true;
+        ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach((e) => window.removeEventListener(e, go));
+      });
+    }
   }
 
   // Safety net: never leave content hidden if motion could not start.
