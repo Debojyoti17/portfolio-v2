@@ -330,6 +330,10 @@ main {
 .footer__mono span {
   color: var(--accent);
 }
+.hud ~ .footer,
+body:has([data-hud]) .footer {
+  padding-bottom: 36px;
+}
 .footer__base {
   position: relative;
   display: flex;
@@ -349,6 +353,8 @@ main {
 
 /* ---------- HUD (home only) ---------- */
 .hud {
+  background: var(--bg);
+  border-top: 1px solid var(--rule);
   position: fixed;
   left: 0;
   right: 0;

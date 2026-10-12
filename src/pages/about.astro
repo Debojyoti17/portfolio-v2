@@ -82,7 +82,7 @@ const first = edu[0];
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="skills-title">
+  <section class="sec" aria-labelledby="skills-title" data-numbered>
     <div class="container">
       <SectionHead label="Skills" title="Tools I work with" id="skills-title" />
       <SkillsSheet />
@@ -90,7 +90,7 @@ const first = edu[0];
   </section>
 
   {features.timeline && timeline.length > 0 && (
-    <section class="sec" aria-labelledby="tl-title">
+    <section class="sec" aria-labelledby="tl-title" data-numbered>
       <div class="container">
         <SectionHead label="Timeline" title="Path so far" id="tl-title" />
         <TimelineList entries={timeline} />
@@ -99,7 +99,7 @@ const first = edu[0];
   )}
 
   {pubs.length > 0 && (
-    <section class="sec" aria-labelledby="pub-title">
+    <section class="sec" aria-labelledby="pub-title" data-numbered>
       <div class="container">
         <SectionHead label="Publications" title="Papers" id="pub-title" />
         <PublicationList items={pubs} />

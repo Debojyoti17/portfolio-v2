@@ -123,7 +123,9 @@ export async function initMotion(): Promise<() => void> {
     const indexEl = hud.querySelector('[data-hud-index]');
     const line = hud.querySelector<HTMLElement>('[data-hud-line]');
     const pad = (n: number) => String(n).padStart(2, '0');
-    sections.forEach((s, i) =>
+    const numbered = sections.filter((s) => s.hasAttribute('data-numbered'));
+    const idxOf = (s: HTMLElement) => (s.hasAttribute('data-numbered') ? numbered.indexOf(s) + 1 : 0);
+    sections.forEach((s) =>
       triggers.push(
         ScrollTrigger.create({
           trigger: s,
@@ -132,13 +134,13 @@ export async function initMotion(): Promise<() => void> {
           onToggle: (self) => {
             if (!self.isActive) return;
             if (labelEl) labelEl.textContent = s.dataset.label ?? '';
-            if (indexEl) indexEl.textContent = `${pad(i + 1)}/${pad(sections.length)}`;
+            if (indexEl) indexEl.textContent = `${pad(idxOf(s))}/${pad(numbered.length)}`;
           },
         }),
       ),
     );
     if (labelEl && sections[0]) labelEl.textContent = sections[0].dataset.label ?? '';
-    if (indexEl) indexEl.textContent = `01/${pad(sections.length)}`;
+    if (indexEl && sections[0]) indexEl.textContent = `${pad(idxOf(sections[0]))}/${pad(numbered.length)}`;
     triggers.push(
       ScrollTrigger.create({
         start: 0,

@@ -310,7 +310,7 @@ function grid(n: number, _r: R): Float32Array {
     const x = (c / (cols - 1) - 0.5) * 7.6;
     const z = (w / (rows - 1) - 0.5) * 4.6;
     const y = 0.2 * Math.sin(x * 1.1) * Math.cos(z * 1.4) + 0.08 * Math.sin(x * 3 + z * 2);
-    const p = rotX([x, y, z], -0.95);
+    const p = rotY(rotX([x, y, z], -0.78), -0.45);
     o[i * 3] = p[0];
     o[i * 3 + 1] = p[1];
     o[i * 3 + 2] = p[2];

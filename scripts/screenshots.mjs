@@ -56,7 +56,10 @@ for (const [name, p] of pages) {
         await page.screenshot({ path: path.join(out, `${tag}.png`), fullPage: false });
         const h = await page.evaluate(() => document.documentElement.scrollHeight);
         if (h > vp.height * 1.3) {
-          await page.evaluate(() => window.scrollTo(0, 0));
+          for (let y = 0; y < h; y += vp.height * 0.7) { await page.evaluate((yy) => (window.__lenis ? window.__lenis.scrollTo(yy, { immediate: true }) : window.scrollTo(0, yy)), y); await page.waitForTimeout(250); }
+          await page.waitForTimeout(1500);
+          await page.evaluate(() => (window.__lenis ? window.__lenis.scrollTo(0, { immediate: true }) : window.scrollTo(0, 0)));
+          await page.waitForTimeout(300);
           await page.screenshot({ path: path.join(out, `${tag}-full.png`), fullPage: true });
         }
       }

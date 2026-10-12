@@ -200,6 +200,7 @@ html.stage-live .stage--fixed {
   }
 }
 .hero__row {
+  margin-top: clamp(28px, 4vw, 56px);
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--gutter);
@@ -245,8 +246,6 @@ html.stage-live .stage--fixed {
   padding-block: clamp(20px, 3vw, 44px);
 }
 .focus__idx {
-  font-size: 1.25rem;
-  color: var(--muted);
   margin-bottom: 8px;
 }
 .focus__line {
@@ -277,7 +276,7 @@ html.stage-live .stage--fixed {
   }
   .focus__idx {
     grid-column: 1 / span 3;
-    margin: 0.6em 0 0;
+    margin: 1.4em 0 0;
   }
   .focus__main {
     grid-column: 4 / -1;
@@ -591,6 +590,9 @@ html.motion.motion-ready .focus__idx {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.spec__row > dd {
+  margin: 0;
+}
 .spec__items {
   display: flex;
   flex-wrap: wrap;
@@ -624,7 +626,7 @@ html.motion.motion-ready .focus__idx {
     grid-column: 1 / span 3;
     padding-top: 0.3em;
   }
-  .spec__items {
+  .spec__row > dd {
     grid-column: 4 / -1;
   }
 }

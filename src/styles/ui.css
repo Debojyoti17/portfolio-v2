@@ -169,6 +169,16 @@
   font-weight: 600;
   text-wrap: balance;
 }
+.sec-head--compact {
+  margin-bottom: clamp(16px, 3vw, 40px);
+}
+.sec-head--compact .sec-head__title {
+  font-size: var(--t-lead);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 500;
+  color: var(--fg-2);
+}
 .sec-head__aside {
   grid-column: 1 / -1;
   max-width: 44ch;
@@ -181,7 +191,17 @@
   .sec-head__title {
     grid-column: 4 / -1;
   }
-  .sec-head__aside {
+  .sec-head--compact {
+  margin-bottom: clamp(16px, 3vw, 40px);
+}
+.sec-head--compact .sec-head__title {
+  font-size: var(--t-lead);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.sec-head__aside {
     grid-column: 4 / span 6;
   }
 }

@@ -1,0 +1,19 @@
+404-390-light [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+404-768-light [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+404-1440-light [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+404-390-dark [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+404-768-dark [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+404-1440-dark [
+  'error: Failed to load resource: the server responded with a status of 404 (Not Found)'
+]
+done -> .shots/r2

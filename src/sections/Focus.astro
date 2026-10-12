@@ -19,11 +19,11 @@ const pad = (n: number) => String(n).padStart(2, '0');
     <div class="container">
       <div class="focus__track" style={`--n:${items.length}`} data-focus>
         <div class="focus__sticky">
-          <SectionHead label="Research" title="What I work on" id="focus-title" />
+          <SectionHead label="Research" title="What I work on" id="focus-title" compact />
           <ol class="focus__list">
             {items.map((it, i) => (
               <li class="focus__item" data-focus-item>
-                <span class="dot focus__idx" aria-hidden="true">{pad(i + 1)}</span>
+                <span class="label focus__idx" aria-hidden="true">{i + 1} / {items.length}</span>
                 <div class="focus__main">
                   <h3 class="focus__line">{it.title}</h3>
                   <div class="focus__body">
@@ -32,7 +32,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
                       {it.count > 0 && (
                         <p class="focus__link">
                           <a class="link label" href={href(`/work/?tag=${encodeURIComponent(it.tag)}`)}>
-                            {it.count} {it.count === 1 ? 'project' : 'projects'}<Icon name="arrow_forward" />
+                            {`${it.count} ${it.count === 1 ? 'project' : 'projects'}`}<Icon name="arrow_forward" />
                           </a>
                         </p>
                       )}
@@ -48,8 +48,8 @@ const pad = (n: number) => String(n).padStart(2, '0');
             class="focus__anchor"
             style={`--i:${i}`}
             data-form={forms[i % forms.length]}
-            data-sx={i === 0 ? '0.26' : '0.28'}
-            data-so={i === 0 ? '0.9' : '0.8'}
+            data-sx="0.34"
+            data-so="0.55"
             aria-hidden="true"
           />
         ))}

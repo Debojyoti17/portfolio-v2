@@ -322,7 +322,7 @@ async function mountStage(root: HTMLElement): Promise<() => void> {
     const sx = lerp(A.sx, B.sx, t), sy = lerp(A.sy, B.sy, t), so = lerp(A.so, B.so, t);
     let scale: number;
     if (fixed) {
-      const occ = portrait ? 1.0 : 0.6;
+      const occ = portrait ? 1.0 : 0.56;
       scale = Math.min((occ * halfW) / 3.5, (0.86 * halfH) / 2.25);
       uniforms.uOffset.value.set(portrait ? 0 : sx * halfW, portrait ? halfH * (0.34 + sy) : sy * halfH);
     } else {
@@ -330,7 +330,7 @@ async function mountStage(root: HTMLElement): Promise<() => void> {
       uniforms.uOffset.value.set(0, 0);
     }
     uniforms.uScale.value = scale;
-    uniforms.uOpacity.value = so * (portrait && fixed ? 0.75 : 1);
+    uniforms.uOpacity.value = Math.min(1, so + hoverValue * 0.5) * (portrait && fixed ? 0.75 : 1);
 
     // pointer smoothing
     pointer.x += (pointer.tx - pointer.x) * 0.14;

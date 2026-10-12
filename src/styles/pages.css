@@ -72,8 +72,24 @@ html:not(.js) .filters {
 }
 .chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  margin-right: calc(var(--margin) * -1);
+  padding-right: var(--margin);
+}
+.chip {
+  flex: none;
+}
+@media (min-width: 900px) {
+  .chips {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin-right: 0;
+    padding-right: 0;
+  }
 }
 .chip {
   display: inline-flex;
@@ -106,6 +122,7 @@ html:not(.js) .filters {
 }
 @media (min-width: 900px) {
   .filters__bar {
+    align-items: start;
     grid-template-columns: repeat(2, auto);
     justify-content: space-between;
     gap: var(--space-7);
