@@ -1,0 +1,42 @@
+---
+/**
+ * One project inside a research area. Used on the home page (compact) and on the Work page
+ * (with a still of the project's field that links to the project page).
+ */
+import { href } from '../lib/url';
+import { projectVisual, projectLine, type Project } from '../lib/content';
+import { Image } from 'astro:assets';
+import StaticField from './StaticField.astro';
+import ProjectLine from './ProjectLine.astro';
+import ProjectLinks from './ProjectLinks.astro';
+
+interface Props {
+  project: Project;
+  still?: boolean;
+  /** heading level of the project title */
+  level?: 3 | 4;
+}
+const { project, still = false, level = 4 } = Astro.props;
+const T = level === 3 ? 'h3' : 'h4';
+const d = project.data;
+const url = href(`/work/${project.id}/`);
+---
+
+<article class={`entry${still ? ' entry--still' : ''}`} data-card data-tags={d.tags.join('|')} data-type={d.type} data-stage-label={d.stage ?? ''} data-reveal>
+  {still && (
+    <a class="entry__still" href={url} tabindex="-1" aria-hidden="true">
+      {d.cover ? (
+        <Image src={d.cover} alt="" widths={[400, 800]} sizes="(min-width: 900px) 22vw, 100vw" class="entry__img" loading="lazy" />
+      ) : (
+        <StaticField scene={projectVisual(project)} count={800} class="entry__field" />
+      )}
+    </a>
+  )}
+  <div class="entry__body">
+    <p class="entry__line"><ProjectLine line={projectLine(project)} /></p>
+    <T class="entry__title"><a class="link entry__link" href={url}>{d.title}</a></T>
+    <p class="entry__sum">{d.summary}</p>
+    {still && d.tags.length > 0 && <p class="entry__tags">{d.tags.join(' · ')}</p>}
+    <ProjectLinks project={project} />
+  </div>
+</article>

@@ -9,7 +9,7 @@ const { items } = Astro.props;
 
 <ul class="list">
   {items.map((p) => (
-    <li class="list__item" data-reveal="fade">
+    <li class="list__item" data-reveal>
       <div class="list__static">
         <p class="label list__meta">{p.data.year}{p.data.status ? ` · ${p.data.status}` : ''}</p>
         <div class="list__main">

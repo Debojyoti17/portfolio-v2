@@ -27,9 +27,9 @@ const fmt = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'long', d
 {kind === 'index' ? (
   <Base title="Notes" description={`Notes by ${siteConfig.name}.`} ogImage="/og/notes.png">
     <header class="container page-head">
-      <p class="label page-head__label appear">Notes</p>
-      <h1 class="page-head__title"><span class="rise"><span>Notes</span></span></h1>
-      <p class="lead page-head__lead appear">Short write-ups on things I have built and read.</p>
+      <p class="label page-head__label rise-in">Notes</p>
+      <h1 class="page-head__title rise-in" style="--i:1">Notes</h1>
+      <p class="lead page-head__lead rise-in" style="--i:2">Short write-ups on things I have built and read.</p>
     </header>
     <section class="container sec sec--flush" aria-label="All notes"><NoteList notes={notes} /></section>
   </Base>

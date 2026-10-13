@@ -8,13 +8,13 @@ const notes = await getNotes();
 ---
 
 {notes.length > 0 && (
-  <section class="sec" id="notes" aria-labelledby="notes-title" data-section data-numbered data-label="Notes">
+  <section class="sec" id="notes" aria-labelledby="notes-title">
     <div class="container">
       <SectionHead label="Notes" title="Writing" id="notes-title" />
       <NoteList notes={notes.slice(0, 3)} />
       <div class="section-foot">
         <span></span>
-        <a class="btn" href={href('/notes/')}>All notes<Icon name="arrow_forward" /></a>
+        <a class="link action" href={href("/notes/")}>All notes<Icon name="arrow_forward" /></a>
       </div>
     </div>
   </section>

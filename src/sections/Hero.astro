@@ -3,43 +3,27 @@ import { siteConfig } from '@site';
 import { href } from '../lib/url';
 import { hasCV } from '../lib/site';
 import { getProjects } from '../lib/content';
-import Stage from '../components/Stage.astro';
+import Field from '../components/Field.astro';
 import Icon from '../components/Icon.astro';
 
 const projects = await getProjects();
-const hasContact = siteConfig.homeSections.includes('contact');
 const words = siteConfig.name.split(' ');
 ---
 
-<section class="hero" id="hero" aria-labelledby="hero-title" data-section data-label="Introduction">
-  <Stage mode="hero" scene="scene" />
+<section class="hero" id="hero" aria-labelledby="hero-title">
+  <Field scene="scene" mode="hero" class="hero__field" />
   <div class="container hero__inner">
-    <div class="hero__top">
-      <p class="label hero__kicker">Portfolio</p>
-    </div>
-
-    <div>
-      <h1 class="hero__name" id="hero-title">
-        <span class="sr-only">{siteConfig.name}</span>
-        <span aria-hidden="true">
-          {words.map((w, i) => (
-            <span class="line"><span style={`--i:${i}`}>{w}{i === words.length - 1 && <span class="hero__stop"></span>}</span></span>
-          ))}
-        </span>
-      </h1>
-
-      <div class="hero__row">
-        <div class="hero__actions">
-          {siteConfig.status && <p class="label">{siteConfig.status}</p>}
-          <div class="btn-row">
-            {projects.length > 0 && (
-              <a class="btn btn--solid" href={href('/work/')}>Selected work<Icon name="arrow_forward" /></a>
-            )}
-            {hasContact && <a class="btn" href={href('/#contact')}>Contact</a>}
-            {hasCV && <a class="btn" href={href(siteConfig.files.cv)} download>Download CV<Icon name="download" /></a>}
-          </div>
-        </div>
-      </div>
-    </div>
+    <h1 class="hero__name" id="hero-title">
+      <span class="sr-only">{siteConfig.name}</span>
+      <span aria-hidden="true">
+        {words.map((w, i) => <span class="hero__line rise-in" style={`--i:${i}`}>{w}</span>)}
+      </span>
+    </h1>
+    {siteConfig.status && <p class="hero__status rise-in" style="--i:3">{siteConfig.status}</p>}
+    <p class="hero__actions rise-in" style="--i:4">
+      {projects.length > 0 && <a class="link action" href="#research">Research &amp; projects<Icon name="arrow_downward" /></a>}
+      <a class="link action" href="#contact">Contact<Icon name="arrow_downward" /></a>
+      {hasCV && <a class="link action" href={href(siteConfig.files.cv)} download>CV<Icon name="download" /></a>}
+    </p>
   </div>
 </section>

@@ -1,0 +1,29 @@
+---
+/**
+ * A slot for the site's one particle field. The live canvas is moved into whichever slot the current
+ * page has; until then (and without WebGL or with reduced motion) the static SVG render is shown.
+ *   mode "hero"      the home hero (beside the name on desktop, above it on phones)
+ *   mode "viewport"  the framed field on a project page
+ * Every field carries the same caption: an optional name and a device-aware hint.
+ */
+import StaticField from './StaticField.astro';
+import type { SceneName } from '../scripts/stage/scenes';
+
+interface Props {
+  scene: SceneName;
+  mode?: 'hero' | 'viewport';
+  name?: string;
+  class?: string;
+}
+const { scene, mode = 'hero', name, class: className = '' } = Astro.props;
+---
+
+<div class={`field field--${mode} ${className}`.trim()}>
+  <div class="field__slot" data-field-slot data-scene={scene} data-mode={mode} aria-hidden="true">
+    <StaticField scene={scene} class="field__static" count={mode === 'hero' ? 1400 : 1100} />
+  </div>
+  <p class="field__cap" aria-hidden="true">
+    {name && <span class="field__name">{name}</span>}
+    <span class="field__hint" data-hint>Move the cursor across the field</span>
+  </p>
+</div>

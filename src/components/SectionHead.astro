@@ -4,16 +4,12 @@ interface Props {
   title: string;
   id?: string;
   aside?: string;
-  /** Skip numbering (e.g. for page-level headers). */
-  split?: boolean;
-  /** Small title (used where the section's content is the headline). */
-  compact?: boolean;
 }
-const { label, title, id, aside, split = true, compact = false } = Astro.props;
+const { label, title, id, aside } = Astro.props;
 ---
 
-<header class={`sec-head${compact ? ' sec-head--compact' : ''}`} data-reveal="rule">
-  <p class="sec-head__meta"><span class="sec-head__idx" aria-hidden="true"></span><span class="label">{label}</span></p>
-  <h2 class="sec-head__title" id={id} data-split={split ? '' : undefined}>{title}</h2>
+<header class="sec-head" data-reveal>
+  <p class="sec-head__label label">{label}</p>
+  <h2 class="sec-head__title" id={id}>{title}</h2>
   {aside && <p class="sec-head__aside">{aside}</p>}
 </header>

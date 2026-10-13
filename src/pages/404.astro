@@ -1,21 +1,20 @@
 ---
 import { href } from '../lib/url';
 import Base from '../layouts/Base.astro';
-import Stage from '../components/Stage.astro';
+import Field from '../components/Field.astro';
 import Icon from '../components/Icon.astro';
 ---
 
 <Base title="Page not found" noindex description="This page does not exist.">
-  <section class="notfound" data-section data-label="404">
-    <Stage mode="hero" scene="noise" />
-    <div class="container">
-      <p class="label">Error · signal not found</p>
-      <h1 class="notfound__code dot" aria-label="404">404</h1>
-      <p class="lead notfound__text">This page does not exist. The cloud could not converge on anything here.</p>
-      <div class="btn-row">
-        <a class="btn btn--solid" href={href('/')}>Back to home<Icon name="arrow_forward" /></a>
-        <a class="btn" href={href('/work/')}>Work</a>
-      </div>
+  <section class="hero notfound" aria-labelledby="nf-title">
+    <Field scene="noise" mode="hero" class="hero__field" />
+    <div class="container hero__inner">
+      <h1 class="hero__name" id="nf-title"><span class="hero__line rise-in">Not found</span></h1>
+      <p class="hero__status rise-in" style="--i:1">This page does not exist. The field could not settle on anything here.</p>
+      <p class="hero__actions rise-in" style="--i:2">
+        <a class="link action" href={href('/')}>Home<Icon name="arrow_forward" /></a>
+        <a class="link action" href={href('/work/')}>Work<Icon name="arrow_forward" /></a>
+      </p>
     </div>
   </section>
 </Base>

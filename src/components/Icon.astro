@@ -12,12 +12,13 @@ const { name, class: className = '', label } = Astro.props;
 const files = import.meta.glob('../assets/icons/*.svg', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const raw = files[`../assets/icons/${name}.svg`];
 if (!raw) throw new Error(`Icon "${name}" not found in src/assets/icons`);
-const inner = raw.replace(/<svg[^>]*>/, '').replace('</svg>', '');
+const viewBox = /viewBox="([^"]+)"/.exec(raw)?.[1] ?? '0 -960 960 960';
+const inner = raw.replace(/<svg[^>]*>/, '').replace(/<title>.*?<\/title>/, '').replace('</svg>', '');
 ---
 
 <svg
-  class={`icon ${className}`.trim()}
-  viewBox="0 -960 960 960"
+  class={`icon icon--${name} ${className}`.trim()}
+  viewBox={viewBox}
   aria-hidden={label ? undefined : 'true'}
   role={label ? 'img' : undefined}
   aria-label={label}

@@ -6,7 +6,7 @@ const items = await getPublications();
 ---
 
 {items.length > 0 && (
-  <section class="sec" id="publications" aria-labelledby="pub-title" data-section data-numbered data-label="Publications">
+  <section class="sec" id="publications" aria-labelledby="pub-title">
     <div class="container">
       <SectionHead label="Publications" title="Papers" id="pub-title" />
       <PublicationList items={items} />

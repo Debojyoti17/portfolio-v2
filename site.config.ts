@@ -72,18 +72,7 @@ export const siteConfig = {
    * Add a section = create the component + add one line here.
    * Sections with nothing to show render nothing and disappear on their own.
    */
-  homeSections: [
-    'hero',
-    'focus',
-    'work',
-    'about',
-    'stack',
-    'timeline',
-    'publications',
-    'notes',
-    'github',
-    'contact',
-  ],
+  homeSections: ['hero', 'research', 'about', 'stack', 'timeline', 'publications', 'notes', 'github'],
 
   /** About text. Paragraphs are rendered in order. */
   bio: [
@@ -92,7 +81,8 @@ export const siteConfig = {
   ],
 
   /**
-   * Research areas. They head the groups on the Work page and the three columns of "What I work on".
+   * Research areas. Each is a heading with one sentence, and its projects sit underneath it
+   * (home "Research & projects" and the Work page).
    * A project joins an area through `area:` in its front matter (must match a `title` here).
    */
   interests: [

@@ -6,7 +6,7 @@ const entries = await getTimeline();
 ---
 
 {entries.length > 0 && (
-  <section class="sec" id="timeline" aria-labelledby="timeline-title" data-section data-numbered data-label="Timeline">
+  <section class="sec" id="timeline" aria-labelledby="timeline-title">
     <div class="container">
       <SectionHead label="Timeline" title="Path so far" id="timeline-title" />
       <TimelineList entries={entries} />

@@ -26,11 +26,11 @@ const items = siteConfig.nav.filter((i) => {
 
     <nav class="nav__links" aria-label="Primary">
       {items.map((i) => (
-        <a class="nav__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
+        <a class="link nav__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
           {i.label}
         </a>
       ))}
-      <a class="nav__link" href={href('/#contact')}>Contact</a>
+      <a class="link nav__link" href="#contact">Contact</a>
     </nav>
 
     <div class="nav__actions">
@@ -47,18 +47,12 @@ const items = siteConfig.nav.filter((i) => {
 <div class="menu" id="menu" data-menu>
   <nav aria-label="Mobile">
     <ul class="menu__list">
-      {items.map((i, n) => (
+      {items.map((i) => (
         <li class="menu__item">
-          <a class="menu__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
-            <span class="dot">{String(n + 1).padStart(2, '0')}</span>{i.label}
-          </a>
+          <a class="menu__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>{i.label}</a>
         </li>
       ))}
-      <li class="menu__item">
-        <a class="menu__link" href={href('/#contact')}>
-          <span class="dot">{String(items.length + 1).padStart(2, '0')}</span>Contact
-        </a>
-      </li>
+      <li class="menu__item"><a class="menu__link" href="#contact">Contact</a></li>
     </ul>
   </nav>
   <div class="menu__foot">

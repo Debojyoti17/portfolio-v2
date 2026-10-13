@@ -5,7 +5,8 @@ import { siteConfig } from '@site';
 import { href } from '../../lib/url';
 import { projectVisual, projectLine, type Project } from '../../lib/content';
 import Base from '../../layouts/Base.astro';
-import Stage from '../Stage.astro';
+import Field from '../Field.astro';
+import ProjectLinks from '../ProjectLinks.astro';
 import ProjectLine from '../ProjectLine.astro';
 import Icon from '../Icon.astro';
 
@@ -20,65 +21,41 @@ const d = project.data;
 const visual = projectVisual(project);
 const prev = projects[(index - 1 + projects.length) % projects.length];
 const next = projects[(index + 1) % projects.length];
-const pad = (n: number) => String(n).padStart(2, '0');
-const links = [
-  d.links?.github && { label: 'Source code', url: d.links.github, icon: 'code' },
-  d.links?.paper && { label: 'Paper', url: d.links.paper, icon: 'article' },
-  d.links?.demo && { label: 'Live demo', url: d.links.demo, icon: 'play_arrow' },
-  ...(d.links?.other ?? []).map((o) => ({ label: o.label, url: o.url, icon: 'arrow_outward' })),
-].filter(Boolean) as { label: string; url: string; icon: string }[];
 const facts = d.facts ?? [];
 ---
 
 <Base title={d.title} description={d.summary} ogImage={`/og/work-${project.id}.png`} ogType="article">
   <article class="project">
     <header class="container page-head project__head">
-      <p class="label page-head__label appear">
+      <p class="label page-head__label rise-in">
         <a class="link" href={href('/work/')}><Icon name="arrow_back" />Work</a>
-        <span aria-hidden="true">/</span>
-        <span>{pad(index + 1)} of {pad(projects.length)}</span>
+        {d.area && <><span aria-hidden="true">/</span><span>{d.area}</span></>}
       </p>
-      <h1 class="project__title"><span class="rise"><span>{d.title}</span></span></h1>
-      <div class="project__lede">
+      <h1 class="project__title rise-in" style="--i:1">{d.title}</h1>
+      <div class="project__lede rise-in" style="--i:2">
         <p class="lead">{d.summary}</p>
         <p><ProjectLine line={projectLine(project)} /></p>
       </div>
     </header>
 
-    <div class="container">
-      <div class="viewport marks" data-reveal="wipe">
-        <i class="viewport__corner viewport__corner--tl"></i><i class="viewport__corner viewport__corner--tr"></i>
-        <i class="viewport__corner viewport__corner--bl"></i><i class="viewport__corner viewport__corner--br"></i>
-        <Stage mode="viewport" scene={visual} />
-        <p class="viewport__cap label" aria-hidden="true"><span>{d.title}</span><span data-hint>Move the cursor across the field</span></p>
-      </div>
+    <div class="container rise-in" style="--i:3">
+      <Field scene={visual} mode="viewport" name={d.title} />
     </div>
 
     <div class="container project__body">
       <div class="grid project__grid">
-        <aside class="project__facts" aria-label="Project facts">
+        <aside class="project__facts" aria-label="Project facts" data-reveal>
           <dl class="facts">
             <div><dt class="label">Type</dt><dd>{d.type}</dd></div>
             {d.stage && <div><dt class="label">Stage</dt><dd>{d.stage}</dd></div>}
             {d.role && <div><dt class="label">Role</dt><dd>{d.role}</dd></div>}
             {facts.map((f) => <div><dt class="label">{f.label}</dt><dd>{f.value}</dd></div>)}
-            {d.tags.length > 0 && (
-              <div>
-                <dt class="label">Topics</dt>
-                <dd>
-                  <p class="quiet-tags label">{d.tags.join(' · ')}</p>
-                </dd>
-              </div>
-            )}
+            {d.tags.length > 0 && <div><dt class="label">Topics</dt><dd>{d.tags.join(' · ')}</dd></div>}
           </dl>
-          {links.length > 0 && (
-            <div class="btn-row project__links">
-              {links.map((l) => <a class="btn" href={l.url} rel="noopener">{l.label}<Icon name={l.icon} /></a>)}
-            </div>
-          )}
+          <ProjectLinks project={project} class="project__links" />
         </aside>
 
-        <div class="project__main">
+        <div class="project__main" data-reveal>
           {d.cover && (
             <figure class="project__cover">
               <Image src={d.cover} alt={d.coverAlt ?? ''} widths={[640, 1000, 1400]} sizes="(min-width: 900px) 60vw, 100vw" />

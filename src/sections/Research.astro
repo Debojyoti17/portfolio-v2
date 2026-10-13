@@ -1,0 +1,16 @@
+---
+import { getFeaturedProjects } from '../lib/content';
+import SectionHead from '../components/SectionHead.astro';
+import ResearchIndex from '../components/ResearchIndex.astro';
+
+const projects = await getFeaturedProjects();
+---
+
+{projects.length > 0 && (
+  <section class="sec" id="research" aria-labelledby="research-title">
+    <div class="container">
+      <SectionHead label="Research" title="Research & projects" id="research-title" />
+      <ResearchIndex projects={projects} />
+    </div>
+  </section>
+)}

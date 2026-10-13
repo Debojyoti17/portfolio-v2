@@ -17,41 +17,36 @@ const pubs = await getPublications();
 
 <Base title="About" description={siteConfig.description} ogImage="/og/about.png">
   <header class="container page-head">
-    <p class="label page-head__label appear">About</p>
-    <h1 class="page-head__title"><span class="rise"><span>About</span></span></h1>
-    <p class="lead page-head__lead appear">{siteConfig.tagline}</p>
+    <p class="label page-head__label rise-in">About</p>
+    <h1 class="page-head__title rise-in" style="--i:1">About</h1>
+    <p class="lead page-head__lead rise-in" style="--i:2">{siteConfig.tagline}</p>
   </header>
 
   <section class="sec sec--flush" aria-label="Biography">
     <div class="container">
       <div class={`grid about__grid about-page${hasProfile ? '' : ' about__grid--text'}`}>
         {hasProfile && (
-          <figure class="plate marks about-page__plate">
+          <figure class="plate about-page__plate" data-reveal>
             <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} width="880" height="1100" decoding="async" />
-            <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
           </figure>
         )}
 
         <div class="about__text about-page__text">
-          <div class="about__bio">
+          <div class="about__bio" data-reveal>
             {siteConfig.bio.map((p) => <p>{p}</p>)}
           </div>
 
-          {edu.length > 0 && (
-            <div class="about-block">
+          {edu.map((e) => (
+            <div class="about__edu" data-reveal>
               <p class="label">Education</p>
-              {edu.map((e) => (
-                <div class="about__edu" data-reveal="fade">
-                  <p class="about__years">{e.data.start} – {e.data.end}{e.data.endNote && <span class="about__note"> ({e.data.endNote})</span>}</p>
-                  <p class="about__degree">{e.data.title}</p>
-                  <p class="tl__org">{e.data.org}{e.data.location ? `, ${e.data.location}` : ''}</p>
-                </div>
-              ))}
+              <p class="about__degree">{e.data.title}</p>
+              <p class="about__org">{e.data.org}{e.data.location ? `, ${e.data.location}` : ''}</p>
+              <p class="about__years">{e.data.start} – {e.data.end}{e.data.endNote && ` (${e.data.endNote})`}</p>
             </div>
-          )}
+          ))}
 
           {siteConfig.interests.length > 0 && (
-            <div class="about-block">
+            <div class="about__edu" data-reveal>
               <p class="label">Research interests</p>
               <ul class="about__interests">
                 {siteConfig.interests.map((i) => <li>{i.title}</li>)}
@@ -59,16 +54,16 @@ const pubs = await getPublications();
             </div>
           )}
 
-          <div class="btn-row">
-            <a class="btn btn--solid" href={`mailto:${siteConfig.email}`}>Email<Icon name="mail" /></a>
-            {hasCV && <a class="btn" href={href(siteConfig.files.cv)} download>Download CV<Icon name="download" /></a>}
-          </div>
+          <p class="about__actions" data-reveal>
+            <a class="link action" href={`mailto:${siteConfig.email}`}>Email<Icon name="arrow_outward" /></a>
+            {hasCV && <a class="link action" href={href(siteConfig.files.cv)} download>CV<Icon name="download" /></a>}
+          </p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="skills-title" data-numbered>
+  <section class="sec" aria-labelledby="skills-title">
     <div class="container">
       <SectionHead label="Skills" title="Tools I work with" id="skills-title" />
       <SkillsSheet />
@@ -76,7 +71,7 @@ const pubs = await getPublications();
   </section>
 
   {features.timeline && timeline.length > 0 && (
-    <section class="sec" aria-labelledby="tl-title" data-numbered>
+    <section class="sec" aria-labelledby="tl-title">
       <div class="container">
         <SectionHead label="Timeline" title="Path so far" id="tl-title" />
         <TimelineList entries={timeline} />
@@ -85,7 +80,7 @@ const pubs = await getPublications();
   )}
 
   {pubs.length > 0 && (
-    <section class="sec" aria-labelledby="pub-title" data-numbered>
+    <section class="sec" aria-labelledby="pub-title">
       <div class="container">
         <SectionHead label="Publications" title="Papers" id="pub-title" />
         <PublicationList items={pubs} />

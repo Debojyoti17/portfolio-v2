@@ -10,24 +10,35 @@ const notes = await getNotes();
 const year = new Date().getFullYear();
 const index = [
   { label: 'Home', href: '/' },
-  { label: 'Work', href: '/work/' },
+  ...(projects.length ? [{ label: 'Work', href: '/work/' }] : []),
   { label: 'About', href: '/about/' },
   ...(features.notes && notes.length ? [{ label: 'Notes', href: '/notes/' }] : []),
-  { label: 'Contact', href: '/#contact' },
 ];
-const initials = siteConfig.initials;
+const github = siteConfig.social.github;
+const action = siteConfig.contactForm.action;
 ---
 
 <footer class="footer" data-footer>
   <div class="container">
-    <div class="grid footer__grid">
-      <div class="footer__about">
-        <p class="label footer__title">Contact</p>
-        <p>
-          <a class="link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}<Icon name="arrow_outward" /></a>
+    <section class="contact" id="contact" aria-labelledby="contact-title" data-reveal>
+      <h2 class="contact__title" id="contact-title">Contact</h2>
+      <p class="contact__mail"><a class="link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}</a></p>
+      {github && (
+        <p class="contact__more">
+          <a class="link action" href={github} rel="noopener me"><Icon name="github" />GitHub<Icon name="arrow_outward" /></a>
         </p>
-      </div>
+      )}
+      {features.contactForm && (
+        <form class="form" method="post" action={action || undefined} data-contact-form data-mailto={siteConfig.email}>
+          <label><span class="label">Name</span><input name="name" autocomplete="name" required /></label>
+          <label><span class="label">Email</span><input name="email" type="email" autocomplete="email" required /></label>
+          <label><span class="label">Message</span><textarea name="message" required></textarea></label>
+          <div><button class="link action" type="submit">Send<Icon name="arrow_forward" /></button></div>
+        </form>
+      )}
+    </section>
 
+    <div class="grid footer__grid">
       <nav class="footer__col" aria-label="Site">
         <p class="label footer__title">Index</p>
         <ul class="footer__list">
@@ -57,20 +68,16 @@ const initials = siteConfig.initials;
       )}
     </div>
 
-    <p class="footer__mono" aria-hidden="true">{initials}<span class="footer__sq"></span></p>
+    <p class="footer__mono" aria-hidden="true">{siteConfig.initials}</p>
 
     <div class="footer__base">
       <p class="label">
         <span>© {year} {siteConfig.name}</span>
         {siteConfig.place && <span>{siteConfig.place.label} <span data-clock data-tz={siteConfig.place.timeZone}></span></span>}
-        {placeReadout && <span class="footer__coords">{placeReadout}</span>}
+        {placeReadout && <span>{placeReadout}</span>}
       </p>
-      <p class="label">
-        <a class="link" href="#top" data-top>Back to top</a>
-      </p>
+      <p class="label"><a class="link" href="#top" data-top>Back to top</a></p>
     </div>
-    <p class="label" style="padding-bottom:var(--space-6);opacity:.9">
-      Set in Instrument Sans, IBM Plex Mono and Doto. Built with Astro. No cookies, no tracking.
-    </p>
+    <p class="label footer__colophon">Set in Instrument Sans, IBM Plex Mono and Doto. Built with Astro. No cookies, no tracking.</p>
   </div>
 </footer>

@@ -1,14 +1,14 @@
 /**
- * Interactive particle stage.
+ * The particle field: ONE persistent WebGL canvas shared by the whole site.
  *
- * A small spring-physics engine on the CPU (a few thousand particles) drawing a GPU point cloud
- * with Three.js. Fingers and cursors part the particles smoothly, taps send a ripple outward, and
- * each scene adds its own meaning (see behaviours.ts).
+ * Each page may contain a slot (`[data-field-slot]`): the home hero, a project page, the 404 page.
+ * On every Astro view transition the same canvas is moved into the new page's slot and the particles
+ * flow from the form they last held into the new page's form, so the field reads as one continuous
+ * material. Pages without a slot simply park it.
  *
- * Touch: read through passive touch listeners so page scrolling is never blocked; touchmove keeps
- * firing while the page scrolls, so the field keeps reacting while you scroll.
- *
- * Loaded lazily; falls back to the server-rendered SVG without WebGL or under reduced motion.
+ * Physics: a small CPU spring engine (a few thousand particles). A finger or cursor parts the
+ * particles, a tap sends a ripple, and each scene can add one meaningful behaviour (behaviours.ts).
+ * Touch is read through passive listeners, so page scrolling is never blocked.
  */
 import {
   AdditiveBlending,
@@ -22,26 +22,25 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { buildScene, isSceneName, type SceneData, type SceneName } from './scenes';
+import { SCENE_NAMES, buildScene, isSceneName, type SceneData, type SceneName } from './scenes';
 import { makeBehaviour, type Behaviour, type Ptr } from './behaviours';
 import { fragmentShader, vertexShader } from './shaders';
+import { rng } from '../../lib/hash';
 
 const FOV = 38;
 const CAM_Z = 10;
 const HALF_H = Math.tan((FOV * Math.PI) / 360) * CAM_Z;
-const MAX_LIVE = 4;
 const SLOTS = 2;
+/** seconds each particle takes to travel to its new form */
+const MORPH = 1.1;
+/** spread of departure times across particles */
+const STAGGER = 0.6;
 
-type Mode = 'hero' | 'card' | 'viewport';
+type Mode = 'hero' | 'viewport';
 
 const isSmall = () => matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
-
-const COUNTS: Record<Mode, [number, number]> = {
-  hero: [12000, 5500],
-  card: [5200, 3400],
-  viewport: [8500, 4500],
-};
+const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 function cssColor(name: string, fallback: string): [number, number, number] {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
@@ -71,46 +70,6 @@ const remove = (id: string) => {
   input.pointers = input.pointers.filter((q) => q.id !== id);
 };
 
-/* ----------------------------------------------------- renderer pool */
-
-/**
- * WebGL contexts are scarce (browsers allow only a handful). The pool keeps at most MAX_LIVE
- * renderers and lends their canvases to whichever stages are on screen.
- */
-interface PoolSlot {
-  renderer: WebGLRenderer;
-  canvas: HTMLCanvasElement;
-  busy: boolean;
-  dead: boolean;
-}
-const pool: PoolSlot[] = [];
-function acquire(): PoolSlot | null {
-  const free = pool.find((p) => !p.busy && !p.dead);
-  if (free) {
-    free.busy = true;
-    return free;
-  }
-  if (pool.filter((p) => !p.dead).length >= MAX_LIVE) return null;
-  const canvas = document.createElement('canvas');
-  canvas.className = 'stage__canvas';
-  let renderer: WebGLRenderer;
-  try {
-    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
-  } catch {
-    return null;
-  }
-  renderer.setClearColor(0x000000, 0);
-  const slot: PoolSlot = { renderer, canvas, busy: true, dead: false };
-  canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    slot.dead = true;
-  });
-  pool.push(slot);
-  return slot;
-}
-
-/* ------------------------------------------------------------------ stage */
-
 interface Slot {
   x: number;
   y: number;
@@ -124,30 +83,30 @@ interface Ripple {
   y: number;
   t0: number;
 }
+interface Built {
+  data: SceneData;
+  beh: Behaviour;
+}
 
-class Stage {
-  mounted = false;
-  visible = false;
-  disposed = false;
-  mode: Mode;
-  sceneName: SceneName;
-  n: number;
+/* ------------------------------------------------------------------ field */
 
-  private data!: SceneData;
-  private beh!: Behaviour;
-  private renderer!: WebGLRenderer;
-  private slot: PoolSlot | null = null;
-  canvas!: HTMLCanvasElement;
-  private geometry!: BufferGeometry;
-  private material!: ShaderMaterial;
-  private scene3!: Scene;
-  private camera!: PerspectiveCamera;
-  private posAttr!: BufferAttribute;
-  private lookAttr!: BufferAttribute;
-  private pos!: Float32Array;
-  private vel!: Float32Array;
-  private kArr!: Float32Array;
-  private cArr!: Float32Array;
+class Field {
+  readonly n: number;
+  readonly canvas: HTMLCanvasElement;
+  private renderer: WebGLRenderer;
+  private material: ShaderMaterial;
+  private scene3 = new Scene();
+  private camera = new PerspectiveCamera(FOV, 1, 0.1, 100);
+  private posAttr: BufferAttribute;
+  private lookAttr: BufferAttribute;
+  private pos: Float32Array;
+  private vel: Float32Array;
+  private lookBuf: Float32Array;
+  private fromPos: Float32Array;
+  private fromLook: Float32Array;
+  private seed: Float32Array;
+  private kArr: Float32Array;
+  private cArr: Float32Array;
   private uniforms = {
     uSize: { value: 30 },
     uPx: { value: 1 },
@@ -156,63 +115,74 @@ class Stage {
     uAccent: { value: new Vector3(0.9, 0.1, 0.1) },
   };
 
+  private cache = new Map<SceneName, Built>();
+  private cur: Built | null = null;
+  sceneName: SceneName | null = null;
+  private mode: Mode = 'hero';
+  private side = false;
+  slot: HTMLElement | null = null;
+  private attachedOnce = false;
+
   private w = 1;
   private h = 1;
   private halfW = 5;
   private halfH = HALF_H;
-  private portrait = false;
   private scale = 1;
   private offX = 0;
   private offY = 0;
   private R = 1;
   private marginPx = 40;
-  private baseSize = 30;
+  private baseSize = 32;
   private slots: Slot[] = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, tx: 0, ty: 0, amt: 0, on: false }));
   private ripples: Ripple[] = [];
   private lastInput = -99;
-  private t = 0;
+  t = 0;
+  private morphT0 = -99;
+  morphing = false;
+
+  visible = true;
+  private raf = 0;
+  private last = 0;
+  private lastStep = 0;
   private skip = false;
-  private ro?: ResizeObserver;
+  private ro = new ResizeObserver(() => this.resize());
+  private io = new IntersectionObserver((e) => {
+    this.visible = e[e.length - 1]?.isIntersecting ?? true;
+    if (this.visible) this.start();
+  }, { rootMargin: '80px' });
 
-  constructor(public root: HTMLElement) {
-    this.mode = (['hero', 'card', 'viewport'].includes(root.dataset.stage ?? '') ? root.dataset.stage : 'card') as Mode;
-    this.sceneName = isSceneName(root.dataset.scene) ? root.dataset.scene : 'scene';
-    const small = isSmall();
-    this.n = COUNTS[this.mode][small ? 1 : 0];
-  }
+  stats = { frames: 0, sumMs: 0, maxMs: 0, recent: [] as number[], dts: [] as number[], attachMs: 0 };
 
-  mount(): boolean {
-    if (this.mounted || this.disposed) return this.mounted;
-    const slot = acquire();
-    if (!slot) return false;
-    this.slot = slot;
-    this.renderer = slot.renderer;
-    this.canvas = slot.canvas;
-    this.root.appendChild(this.canvas);
-    this.data = buildScene(this.sceneName, this.n);
-    this.beh = makeBehaviour(this.data);
-    const n = this.n;
-
-    this.camera = new PerspectiveCamera(FOV, 1, 0.1, 100);
+  constructor() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'field__canvas';
+    this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
+    this.renderer.setClearColor(0x000000, 0);
+    const n = (this.n = isSmall() ? 5000 : 10000);
     this.camera.position.z = CAM_Z;
-    this.scene3 = new Scene();
     this.pos = new Float32Array(n * 3);
     this.vel = new Float32Array(n * 3);
+    this.lookBuf = new Float32Array(n * 4);
+    this.fromPos = new Float32Array(n * 3);
+    this.fromLook = new Float32Array(n * 4);
+    this.seed = new Float32Array(n * 4);
+    const r = rng(424242);
+    for (let i = 0; i < this.seed.length; i++) this.seed[i] = r();
     this.kArr = new Float32Array(n);
     this.cArr = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const k = 26 * (0.75 + 0.5 * this.data.seed[i * 4]);
+      const k = 26 * (0.75 + 0.5 * this.seed[i * 4]);
       this.kArr[i] = k;
       this.cArr[i] = 2 * Math.sqrt(k) * 0.5;
     }
     this.posAttr = new BufferAttribute(this.pos, 3);
     this.posAttr.setUsage(35048);
-    this.lookAttr = new BufferAttribute(this.beh.look, 4);
+    this.lookAttr = new BufferAttribute(this.lookBuf, 4);
     this.lookAttr.setUsage(35048);
-    this.geometry = new BufferGeometry();
-    this.geometry.setAttribute('position', this.posAttr);
-    this.geometry.setAttribute('aLook', this.lookAttr);
-    this.geometry.setAttribute('aSeed', new BufferAttribute(this.data.seed, 4));
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', this.posAttr);
+    geometry.setAttribute('aLook', this.lookAttr);
+    geometry.setAttribute('aSeed', new BufferAttribute(this.seed, 4));
     this.material = new ShaderMaterial({
       uniforms: this.uniforms,
       vertexShader,
@@ -221,43 +191,105 @@ class Stage {
       depthWrite: false,
       depthTest: false,
     });
-    const points = new Points(this.geometry, this.material);
+    const points = new Points(geometry, this.material);
     points.frustumCulled = false;
     this.scene3.add(points);
-
-    this.baseSize = this.mode === 'hero' ? (isSmall() ? 40 : 32) : isSmall() ? 38 : 34;
-    this.resize(true);
-    // start as uninitialised noise; the springs pull the particles into form
-    const r = this.data.seed;
-    for (let i = 0; i < n; i++) {
-      this.pos[i * 3] = (r[i * 4 + 1] - 0.5) * this.halfW * 1.7;
-      this.pos[i * 3 + 1] = (r[i * 4 + 2] - 0.5) * this.halfH * 1.7;
-      this.pos[i * 3 + 2] = (r[i * 4 + 3] - 0.5) * 3;
-    }
+    this.baseSize = isSmall() ? 40 : 32;
     this.applyTheme();
-    this.t = 0;
-    this.ro = new ResizeObserver(() => this.resize());
-    this.ro.observe(this.root);
-    this.root.classList.add('is-live');
-    this.mounted = true;
-    this.lastInput = -99;
-    return true;
+  }
+
+  private build(name: SceneName): Built {
+    let b = this.cache.get(name);
+    if (!b) {
+      const data = buildScene(name, this.n);
+      b = { data, beh: makeBehaviour(data) };
+      this.cache.set(name, b);
+    }
+    return b;
+  }
+
+  /** Build the remaining scenes in idle time so a navigation never has to. */
+  warm() {
+    const queue = SCENE_NAMES.filter((s) => !this.cache.has(s));
+    const ric = (cb: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 200));
+    const step = () => {
+      const s = queue.shift();
+      if (!s) return;
+      this.build(s);
+      ric(step);
+    };
+    ric(step);
   }
 
   applyTheme() {
-    if (!this.mounted && !this.uniforms) return;
     const ink = cssColor('--stage-ink', '#141416');
     const acc = cssColor('--accent', '#e4161f');
     this.uniforms.uInk.value.set(...ink);
     this.uniforms.uAccent.value.set(...acc);
     const dark = ink[0] + ink[1] + ink[2] > 1.5;
-    if (this.material) this.material.blending = dark ? AdditiveBlending : NormalBlending;
+    this.material.blending = dark ? AdditiveBlending : NormalBlending;
     this.uniforms.uSize.value = this.baseSize * (dark ? 1 : 1.08);
   }
 
+  /** Move the canvas into this page's slot (or park it) and flow into the slot's form. */
+  attach(slot: HTMLElement | null) {
+    if (!slot) {
+      this.park();
+      return;
+    }
+    const scene: SceneName = isSceneName(slot.dataset.scene) ? slot.dataset.scene : 'scene';
+    if (slot !== this.slot) {
+      this.slot?.classList.remove('is-live');
+      this.ro.disconnect();
+      this.io.disconnect();
+      slot.appendChild(this.canvas);
+      this.slot = slot;
+      this.mode = slot.dataset.mode === 'viewport' ? 'viewport' : 'hero';
+      this.ro.observe(slot);
+      this.io.observe(slot);
+      this.visible = true;
+      this.resize(true);
+    }
+    if (!this.attachedOnce) {
+      setTimeout(() => this.warm(), 2500);
+      // very first appearance: the particles start as uninitialised noise and fade in
+      for (let i = 0; i < this.n; i++) {
+        this.pos[i * 3] = (this.seed[i * 4 + 1] - 0.5) * this.halfW * 1.8;
+        this.pos[i * 3 + 1] = (this.seed[i * 4 + 2] - 0.5) * this.halfH * 1.8;
+        this.pos[i * 3 + 2] = (this.seed[i * 4 + 3] - 0.5) * 3;
+        this.lookBuf[i * 4] = 0;
+      }
+    }
+    if (scene !== this.sceneName) this.setScene(scene);
+    slot.classList.toggle('is-instant', this.attachedOnce);
+    slot.classList.add('is-live');
+    this.attachedOnce = true;
+    // draw immediately so the view-transition snapshot of the new page already shows the field
+    this.render(0);
+    this.start();
+  }
+
+  park() {
+    this.stop();
+    this.slot?.classList.remove('is-live');
+    this.ro.disconnect();
+    this.io.disconnect();
+    this.canvas.remove();
+    this.slot = null;
+  }
+
+  private setScene(name: SceneName) {
+    this.fromPos.set(this.pos);
+    this.fromLook.set(this.lookBuf);
+    this.cur = this.build(name);
+    this.sceneName = name;
+    this.morphT0 = this.t;
+    this.morphing = true;
+  }
+
   resize(force = false) {
-    if (!this.renderer) return;
-    const rect = this.root.getBoundingClientRect();
+    if (!this.slot) return;
+    const rect = this.slot.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     if (!force && w === this.w && h === this.h) return;
@@ -266,47 +298,82 @@ class Stage {
     const dpr = Math.min(window.devicePixelRatio || 1, isSmall() ? 1.5 : 1.75);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
-    this.uniforms.uPx.value = dpr * (h / 900) * (this.mode === 'hero' ? 1 : 1.35);
+    this.uniforms.uPx.value = dpr * Math.min(1.2, Math.max(0.6, h / 900)) * (this.mode === 'hero' ? 1 : 1.3);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.halfH = HALF_H;
     this.halfW = HALF_H * this.camera.aspect;
-    this.portrait = this.camera.aspect < 0.9;
-    if (this.mode === 'hero') {
-      const occ = this.portrait ? 1.0 : 0.56;
-      this.scale = Math.min((occ * this.halfW) / 3.5, (0.86 * this.halfH) / 2.25);
-      this.offX = this.portrait ? 0 : 0.2 * this.halfW;
-      this.offY = this.portrait ? this.halfH * 0.34 : 0;
+    // the desktop hero lays the field beside the name; everywhere else it is centred in its frame
+    this.side = this.mode === 'hero' && window.innerWidth >= 900;
+    if (this.side) {
+      this.scale = Math.min((0.56 * this.halfW) / 3.5, (0.86 * this.halfH) / 2.25);
+      this.offX = 0.2 * this.halfW;
     } else {
-      const fitH = this.mode === 'viewport' ? 0.7 : 0.8;
-      this.scale = Math.min((0.82 * this.halfW) / 3.5, (fitH * this.halfH) / 2.25);
+      const fit = this.mode === 'hero' ? 0.94 : 0.82;
+      this.scale = Math.min((fit * this.halfW) / 3.5, ((this.mode === 'hero' ? 0.9 : 0.8) * this.halfH) / 2.25);
       this.offX = 0;
-      // leave room for the caption strip along the bottom edge
-      this.offY = this.mode === 'viewport' ? this.halfH * 0.05 : 0;
     }
+    this.offY = 0;
     const rPx = Math.min(115, Math.max(46, 0.13 * Math.min(w, h))) * (isCoarse() ? 1.15 : 1);
     this.marginPx = rPx;
     this.R = rPx * ((2 * this.halfH) / h);
   }
 
-  /** Tap / click: ripple + scene-specific action. Coordinates are client pixels. */
   tap(cx: number, cy: number) {
-    if (!this.mounted || !this.visible) return;
-    const rect = this.root.getBoundingClientRect();
+    if (!this.slot || !this.cur) return;
+    const rect = this.slot.getBoundingClientRect();
     if (cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
     const wx = ((cx - rect.left) / rect.width * 2 - 1) * this.halfW;
     const wy = -(((cy - rect.top) / rect.height) * 2 - 1) * this.halfH;
     this.ripples.push({ x: wx, y: wy, t0: this.t });
     if (this.ripples.length > 4) this.ripples.shift();
-    this.beh.tap((wx - this.offX) / this.scale, (wy - this.offY) / this.scale);
+    this.cur.beh.tap((wx - this.offX) / this.scale, (wy - this.offY) / this.scale);
     this.lastInput = this.t;
+    this.start();
   }
 
-  step(dt: number, time: number) {
-    if (!this.mounted) return;
+  /* ---------------------------------------------------------------- loop */
+
+  start() {
+    if (this.raf || !this.slot || !this.visible || document.hidden) return;
+    this.last = this.lastStep = performance.now();
+    this.raf = requestAnimationFrame(this.frame);
+  }
+  stop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+  }
+  private frame = (now: number) => {
+    this.raf = 0;
+    if (!this.slot || !this.visible || document.hidden) return;
+    this.raf = requestAnimationFrame(this.frame);
+    const frameDt = (now - this.last) / 1000 || 0.016;
+    this.last = now;
+    this.stats.dts.push(frameDt * 1000);
+    if (this.stats.dts.length > 600) this.stats.dts.shift();
+    // half rate while nobody interacts and nothing is changing
+    if (!this.morphing && this.t - this.lastInput > 3) {
+      this.skip = !this.skip;
+      if (this.skip) return;
+    }
+    const dt = Math.min(0.04, (now - this.lastStep) / 1000 || 0.016);
+    this.lastStep = now;
+    const t0 = performance.now();
+    this.render(Math.min(0.033, dt));
+    const ms = performance.now() - t0;
+    this.stats.frames++;
+    this.stats.sumMs += ms;
+    if (ms > this.stats.maxMs) this.stats.maxMs = ms;
+    this.stats.recent.push(ms);
+    if (this.stats.recent.length > 240) this.stats.recent.shift();
+  };
+
+  /** advance the simulation by dt and draw */
+  render(dt: number) {
+    if (!this.slot || !this.cur) return;
     this.t += dt;
     const t = this.t;
-    const rect = this.root.getBoundingClientRect();
+    const rect = this.slot.getBoundingClientRect();
     if (rect.width > 0 && (Math.abs(rect.width - this.w) > 1.5 || Math.abs(rect.height - this.h) > 1.5)) this.resize();
 
     // pointers → smoothed slots
@@ -345,26 +412,21 @@ class Stage {
     }
     this.ripples = this.ripples.filter((r) => t - r.t0 < 1.2);
 
-    this.beh.update({
-      t,
-      dt,
-      worldR: this.R,
-      scale: this.scale,
-      origin: { x: this.offX, y: this.offY },
-      ptrHome,
-      ptrWorld,
-      pos: this.pos,
-      idle: t - this.lastInput,
-    });
+    const { data, beh } = this.cur;
+    if (dt > 0) {
+      beh.update({
+        t, dt, worldR: this.R, scale: this.scale, origin: { x: this.offX, y: this.offY },
+        ptrHome, ptrWorld, pos: this.pos, idle: t - this.lastInput,
+      });
+    }
 
     /* ---- physics ---- */
-    const { pos, vel, kArr, cArr } = this;
-    const home = this.data.home, seed = this.data.seed, hd = this.beh.hdyn, look = this.beh.look;
+    const { pos, vel, kArr, cArr, lookBuf, fromPos, fromLook } = this;
+    const home = data.home, hd = beh.hdyn, look = beh.look, seed = this.seed;
     const n = this.n;
-    const swayOn = this.data.rotate;
     const mx = ptrWorld.length ? ptrWorld[0].x / this.halfW : 0;
-    const yaw = this.data.view.yaw + (swayOn ? Math.sin(t * 0.18) * 0.16 + mx * 0.08 : 0);
-    const pitch = this.data.view.pitch;
+    const yaw = data.view.yaw + (data.rotate ? Math.sin(t * 0.18) * 0.16 + mx * 0.08 : 0);
+    const pitch = data.view.pitch;
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const scale = this.scale, offX = this.offX, offY = this.offY;
     const R = this.R, R2 = R * R;
@@ -380,15 +442,37 @@ class Stage {
       ramp.push(Math.exp(-age * 1.9));
     }
     const bandW = 0.5 * R;
+    const morphing = this.morphing;
+    const mt = t - this.morphT0;
+    if (morphing && mt > MORPH + STAGGER) this.morphing = false;
+
     for (let i = 0, i3 = 0, i4 = 0; i < n; i++, i3 += 3, i4 += 4) {
       const hx = home[i3] + hd[i3], hy = home[i3 + 1] + hd[i3 + 1], hz = home[i3 + 2] + hd[i3 + 2];
       const x1 = hx * cy + hz * sy;
       const z1 = -hx * sy + hz * cy;
       const y1 = hy * cp - z1 * sp;
       const z2 = hy * sp + z1 * cp;
-      const tx = x1 * scale + offX + Math.sin(time * 0.55 + seed[i4] * 60) * breath;
-      const ty = y1 * scale + offY + Math.cos(time * 0.43 + seed[i4 + 1] * 50) * breath;
-      const tz = z2 * scale;
+      let tx = x1 * scale + offX + Math.sin(t * 0.55 + seed[i4] * 60) * breath;
+      let ty = y1 * scale + offY + Math.cos(t * 0.43 + seed[i4 + 1] * 50) * breath;
+      let tz = z2 * scale;
+      let la = look[i4], ls = look[i4 + 1], lc = look[i4 + 2];
+      if (morphing) {
+        const tm = (mt - seed[i4 + 2] * STAGGER) / MORPH;
+        if (tm < 1) {
+          const e = tm <= 0 ? 0 : easeInOut(tm);
+          const lift = Math.sin(Math.PI * e);
+          tx = fromPos[i3] + (tx - fromPos[i3]) * e + (seed[i4 + 1] - 0.5) * lift * 1.4;
+          ty = fromPos[i3 + 1] + (ty - fromPos[i3 + 1]) * e + (seed[i4 + 3] - 0.5) * lift * 1.0;
+          tz = fromPos[i3 + 2] + (tz - fromPos[i3 + 2]) * e + lift * 1.2;
+          la = fromLook[i4] + (la - fromLook[i4]) * e;
+          ls = fromLook[i4 + 1] + (ls - fromLook[i4 + 1]) * e;
+          lc = fromLook[i4 + 2] + (lc - fromLook[i4 + 2]) * e;
+        }
+      }
+      lookBuf[i4] = la;
+      lookBuf[i4 + 1] = ls;
+      lookBuf[i4 + 2] = lc;
+      if (dt === 0) continue;
       const px = pos[i3], py = pos[i3 + 1], pz = pos[i3 + 2];
       const k = kArr[i], c = cArr[i];
       let ax = k * (tx - px) - c * vel[i3];
@@ -429,178 +513,115 @@ class Stage {
       pos[i3] = px + vx * dt;
       pos[i3 + 1] = py + vy * dt;
       pos[i3 + 2] = pz + vz * dt;
-      look[i4 + 3] = prox;
+      lookBuf[i4 + 3] = prox;
     }
     this.posAttr.needsUpdate = true;
     this.lookAttr.needsUpdate = true;
     this.renderer.render(this.scene3, this.camera);
   }
 
-  dispose() {
-    if (!this.mounted) return;
-    this.mounted = false;
-    this.ro?.disconnect();
-    this.geometry.dispose();
-    this.material.dispose();
-    this.canvas.remove();
-    if (this.slot) this.slot.busy = false;
-    this.slot = null;
-    this.root.classList.remove('is-live');
-  }
-
-  /** distance of the stage centre from the viewport centre, for eviction decisions */
-  distance(): number {
-    const r = this.root.getBoundingClientRect();
-    return Math.abs(r.top + r.height / 2 - window.innerHeight / 2);
+  destroy() {
+    this.park();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
   }
 }
 
-/* -------------------------------------------------------------- manager */
+/* --------------------------------------------------------------- module API */
 
-export async function mountStages(): Promise<() => void> {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
-  const stages: Stage[] = [];
-  document.querySelectorAll<HTMLElement>('[data-stage]').forEach((root) => {
-    stages.push(new Stage(root));
+let field: Field | null = null;
+let failed = false;
+
+/** Create the shared field (once). Returns false when WebGL is unavailable. */
+export function initField(): boolean {
+  if (field) return true;
+  if (failed || matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  try {
+    field = new Field();
+  } catch {
+    failed = true;
+    return false;
+  }
+  const f = field;
+  f.canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    f.destroy();
+    document.documentElement.classList.remove('field-live');
+    field = null;
+    failed = true;
   });
-  if (!stages.length) return () => {};
 
-  let raf = 0;
-  let last = 0;
-  let toggle = false;
-  const stats = { frames: 0, sumMs: 0, maxMs: 0, recent: [] as number[] };
-  const live = () => stages.filter((s) => s.mounted);
-
-  const ensureMounted = (s: Stage) => {
-    if (s.mounted || s.disposed) return;
-    if (!s.mount()) {
-      const far = live().filter((o) => !o.visible).sort((a, b) => b.distance() - a.distance())[0];
-      if (!far) return;
-      far.dispose();
-      s.mount();
-    }
-  };
-
-  const loop = (now: number) => {
-    raf = 0;
-    const active = stages.filter((s) => s.mounted && s.visible);
-    if (!active.length || document.hidden) return;
-    raf = requestAnimationFrame(loop);
-    const dtRaw = Math.min(0.05, (now - last) / 1000 || 0.016);
-    last = now;
-    // idle: half rate when nobody is interacting
-    const idle = active.every((s) => s['t'] - s['lastInput'] > 3);
-    if (idle) {
-      toggle = !toggle;
-      if (toggle) return;
-    }
-    const dt = Math.min(0.033, dtRaw);
-    const t0 = performance.now();
-    for (const s of active) s.step(dt, now / 1000);
-    const ms = performance.now() - t0;
-    stats.frames++;
-    stats.sumMs += ms;
-    if (ms > stats.maxMs) stats.maxMs = ms;
-    stats.recent.push(ms);
-    if (stats.recent.length > 240) stats.recent.shift();
-  };
-  const start = () => {
-    if (!raf && !document.hidden) {
-      last = performance.now();
-      raf = requestAnimationFrame(loop);
-    }
-  };
-
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        const s = stages.find((x) => x.root === e.target);
-        if (!s) continue;
-        s.visible = e.isIntersecting;
-        if (s.visible) ensureMounted(s);
-      }
-      start();
-    },
-    { rootMargin: '120px' },
-  );
-  stages.forEach((s) => io.observe(s.root));
-
-  /* input: pointer events for mouse/pen, passive touch events for fingers */
   const opts: AddEventListenerOptions = { passive: true };
-  const onPointer = (e: PointerEvent) => {
+  window.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
     upsert('mouse', e.clientX, e.clientY);
-    start();
-  };
-  const onPointerDown = (e: PointerEvent) => {
-    if (e.pointerType === 'touch') return;
-    stages.forEach((s) => s.tap(e.clientX, e.clientY));
-  };
-  const onMouseLeave = () => remove('mouse');
-  const onTouchStart = (e: TouchEvent) => {
+    field?.start();
+  }, opts);
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') field?.tap(e.clientX, e.clientY);
+  }, opts);
+  document.documentElement.addEventListener('pointerleave', () => remove('mouse'), opts);
+  window.addEventListener('touchstart', (e) => {
     for (const t of Array.from(e.changedTouches)) {
       upsert('t' + t.identifier, t.clientX, t.clientY);
-      stages.forEach((s) => s.tap(t.clientX, t.clientY));
+      field?.tap(t.clientX, t.clientY);
     }
-    start();
-  };
-  const onTouchMove = (e: TouchEvent) => {
+    field?.start();
+  }, opts);
+  window.addEventListener('touchmove', (e) => {
     for (const t of Array.from(e.touches)) upsert('t' + t.identifier, t.clientX, t.clientY);
-    start();
-  };
-  const onTouchEnd = (e: TouchEvent) => {
+    field?.start();
+  }, opts);
+  const end = (e: TouchEvent) => {
     for (const t of Array.from(e.changedTouches)) remove('t' + t.identifier);
   };
-  window.addEventListener('pointermove', onPointer, opts);
-  window.addEventListener('pointerdown', onPointerDown, opts);
-  document.documentElement.addEventListener('pointerleave', onMouseLeave, opts);
-  window.addEventListener('touchstart', onTouchStart, opts);
-  window.addEventListener('touchmove', onTouchMove, opts);
-  window.addEventListener('touchend', onTouchEnd, opts);
-  window.addEventListener('touchcancel', onTouchEnd, opts);
-  const onVis = () => (document.hidden ? undefined : start());
-  document.addEventListener('visibilitychange', onVis);
-
-  const theme = () => stages.forEach((s) => s.mounted && s.applyTheme());
-  const themeObserver = new MutationObserver(theme);
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  const mq = matchMedia('(prefers-color-scheme: dark)');
-  mq.addEventListener('change', theme);
+  window.addEventListener('touchend', end, opts);
+  window.addEventListener('touchcancel', end, opts);
+  document.addEventListener('visibilitychange', () => (document.hidden ? field?.stop() : field?.start()));
+  new MutationObserver(() => field?.applyTheme()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => field?.applyTheme());
 
   (window as any).__stage = {
-    stats,
-    live: () => live().map((s) => ({ scene: s.sceneName, mode: s.mode, n: s.n })),
+    get scene() { return field?.sceneName; },
+    get morphing() { return field?.morphing; },
+    live: () => (field && field.slot ? [{ scene: field.sceneName, n: field.n }] : []),
+    resetStats: () => field && Object.assign(field.stats, { frames: 0, sumMs: 0, maxMs: 0, recent: [], dts: [] }),
     summary: () => {
-      const r = [...stats.recent].sort((a, b) => a - b);
-      return { frames: stats.frames, avgMs: stats.sumMs / Math.max(1, stats.frames), p95Ms: r[Math.floor(r.length * 0.95)] ?? 0, maxMs: stats.maxMs };
+      if (!field) return null;
+      const s = field.stats;
+      const r = [...s.recent].sort((a, b) => a - b);
+      const d = [...s.dts].sort((a, b) => a - b);
+      return {
+        frames: s.frames,
+        avgMs: s.sumMs / Math.max(1, s.frames),
+        p95Ms: r[Math.floor(r.length * 0.95)] ?? 0,
+        maxMs: s.maxMs,
+        frameP95: d[Math.floor(d.length * 0.95)] ?? 0,
+        over33: s.dts.filter((x) => x > 33.4).length,
+        attachMs: s.attachMs,
+      };
     },
   };
+  return true;
+}
 
-  return () => {
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-    io.disconnect();
-    window.removeEventListener('pointermove', onPointer);
-    window.removeEventListener('pointerdown', onPointerDown);
-    document.documentElement.removeEventListener('pointerleave', onMouseLeave);
-    window.removeEventListener('touchstart', onTouchStart);
-    window.removeEventListener('touchmove', onTouchMove);
-    window.removeEventListener('touchend', onTouchEnd);
-    window.removeEventListener('touchcancel', onTouchEnd);
-    document.removeEventListener('visibilitychange', onVis);
-    themeObserver.disconnect();
-    mq.removeEventListener('change', theme);
-    input.pointers = [];
-    stages.forEach((s) => {
-      s.disposed = true;
-      s.dispose();
-    });
-    // free the GPU contexts when leaving the page
-    while (pool.length) {
-      const p = pool.pop()!;
-      p.renderer.dispose();
-      p.renderer.forceContextLoss();
-    }
-    delete (window as any).__stage;
-  };
+/** Put the field into the current page's slot (or park it if the page has none). */
+export function attachField(): void {
+  if (!field) return;
+  const t0 = performance.now();
+  field.attach(document.querySelector<HTMLElement>('[data-field-slot]'));
+  field.stats.attachMs = performance.now() - t0;
+  document.documentElement.classList.toggle('field-live', !!field.slot);
+}
+
+/**
+ * Before a navigation: the slot glides to its new position only if it is actually on screen,
+ * otherwise it would fly in from far above.
+ */
+export function prepareLeave(): void {
+  const slot = document.querySelector<HTMLElement>('[data-field-slot]');
+  if (!slot) return;
+  const r = slot.getBoundingClientRect();
+  const onScreen = r.bottom > 0 && r.top < window.innerHeight;
+  if (!onScreen) slot.style.viewTransitionName = 'none';
 }

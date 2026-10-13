@@ -1,0 +1,33 @@
+---
+/**
+ * Code / Paper / Demo links for a project. Each appears only when its URL is set in the
+ * project's front matter (links.github, links.paper, links.demo, links.other).
+ */
+import Icon from './Icon.astro';
+import type { Project } from '../lib/content';
+
+interface Props {
+  project: Project;
+  class?: string;
+}
+const { project, class: className = '' } = Astro.props;
+const l = project.data.links ?? {};
+const items = [
+  l.github && { label: 'Code', url: l.github, icon: 'github', title: `Source code for ${project.data.title} on GitHub` },
+  l.paper && { label: 'Paper', url: l.paper, icon: 'article', title: `Paper: ${project.data.title}` },
+  l.demo && { label: 'Demo', url: l.demo, icon: 'play_arrow', title: `Live demo of ${project.data.title}` },
+  ...(l.other ?? []).map((o) => ({ label: o.label, url: o.url, icon: 'arrow_outward', title: `${o.label}: ${project.data.title}` })),
+].filter(Boolean) as { label: string; url: string; icon: string; title: string }[];
+---
+
+{items.length > 0 && (
+  <ul class={`plinks ${className}`.trim()}>
+    {items.map((i) => (
+      <li>
+        <a class="link plink" href={i.url} rel="noopener" aria-label={i.title}>
+          <Icon name={i.icon} class="plink__icon" />{i.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+)}

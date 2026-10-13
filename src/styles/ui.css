@@ -1,166 +1,114 @@
-/* Reusable UI parts */
+/* Reusable UI parts, the hover language and the motion grammar (DESIGN.md §7) */
 
+/* ---------- ONE hover / press language ----------
+   Every link and control: an underline draws in from the left (300ms, ease-out),
+   arrows nudge 3px in their own direction, press dims the label. Nothing else moves. */
 .link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
-  padding-bottom: 2px;
-  transition: background-size var(--dur-ui) var(--ease-out);
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding-bottom: 0.08em;
+  transition: background-size var(--dur-ui) var(--ease-out), opacity var(--dur-micro);
 }
-.link:hover {
-  background-size: 0 1px;
-  background-position: 100% 100%;
+.link:hover,
+.link:focus-visible,
+.link[aria-current='page'] {
+  background-size: 100% 1px;
+}
+.link:active {
+  opacity: 0.6;
 }
 .link .icon {
-  width: 1.1em;
-  height: 1.1em;
+  width: 1em;
+  height: 1em;
+  margin-left: 0.35em;
+  vertical-align: -0.14em;
   transition: transform var(--dur-ui) var(--ease-out);
 }
-.link:hover .icon {
-  transform: translate(2px, -2px);
-}
+.link:hover .icon--arrow_forward { transform: translateX(3px); }
+.link:hover .icon--arrow_back { transform: translateX(-3px); }
+.link:hover .icon--arrow_outward { transform: translate(2px, -2px); }
+.link:hover .icon--arrow_downward,
+.link:hover .icon--download { transform: translateY(3px); }
 
-.btn {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
+/* standalone action: a mono label with a 44px touch target, same hover as every link */
+.action {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 0 20px;
-  border: 1px solid var(--fg);
+  min-height: 44px;
   font-family: var(--font-mono);
   font-size: var(--t-small);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg);
-  transition: color var(--dur-ui) var(--ease-out);
+  background-position: 0 calc(100% - 10px);
 }
-.btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--fg);
-  transform: scaleY(0);
-  transform-origin: bottom;
-  transition: transform var(--dur-ui) var(--ease-out);
+.action .icon {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: 0;
 }
-.btn:hover {
-  color: var(--bg);
+.action .icon--github {
+  margin: 0 0.5em 0 0;
 }
-.btn:hover::before {
-  transform: scaleY(1);
-}
-.btn .icon {
-  width: 18px;
-  height: 18px;
-}
-.btn--solid {
-  background: var(--fg);
-  color: var(--bg);
-}
-.btn--solid::before {
-  background: var(--accent);
-}
-.btn--solid:hover {
-  color: var(--on-accent);
-  border-color: var(--accent);
-}
-.btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+button.action {
+  cursor: pointer;
 }
 
-.tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--rule-strong);
+/* project meta line: "Research project · In progress" */
+.meta {
   font-family: var(--font-mono);
-  font-size: var(--t-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  white-space: nowrap;
-}
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-weight: 400;
   font-size: var(--t-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1.4;
   color: var(--fg-2);
 }
-.status::before {
-  content: '';
-  flex: none;
-  width: 7px;
-  height: 7px;
-  background: var(--accent);
+
+/* project links: Code / Paper / Demo */
+.plinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+}
+.plink {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background-position: 0 calc(100% - 8px);
+}
+.plink .plink__icon {
+  width: 1.25em;
+  height: 1.25em;
+  margin: 0 0.5em 0 0;
+  vertical-align: 0;
 }
 
-/* section header: hairline, index (CSS counter), label, title */
+/* ---------- section header: label, title, hairline ---------- */
 .sec {
   position: relative;
   z-index: 1;
   padding-block: var(--space-section);
 }
-.sec[data-numbered] {
-  counter-increment: sec;
-}
 .sec-head {
-  position: relative;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--gutter);
-  row-gap: var(--space-5);
+  row-gap: var(--space-4);
   padding-top: var(--space-4);
-  margin-bottom: clamp(40px, 6vw, 96px);
+  border-top: 1px solid var(--rule-strong);
+  margin-bottom: clamp(32px, 5vw, 80px);
 }
-.sec-head::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--rule-strong);
-  transform-origin: left;
-  transform: scaleX(var(--rule-draw, 1));
-}
-.sec-head__meta {
+.sec-head__label {
   grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-}
-.sec-head__idx::before {
-  content: counter(sec, decimal-leading-zero);
-}
-.sec-head__idx {
-  font-family: var(--font-dot);
-  font-weight: 800;
-  font-size: 1.5rem;
-  line-height: 1;
-  color: var(--fg);
-  letter-spacing: 0.04em;
 }
 .sec-head__title {
   grid-column: 1 / -1;
@@ -170,64 +118,22 @@
   font-weight: 600;
   text-wrap: balance;
 }
-.sec-head--compact {
-  margin-bottom: clamp(16px, 3vw, 40px);
-}
-.sec-head--compact .sec-head__title {
-  font-size: var(--t-lead);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  font-weight: 500;
-  color: var(--fg-2);
-}
 .sec-head__aside {
   grid-column: 1 / -1;
   max-width: 44ch;
   color: var(--fg-2);
 }
 @media (min-width: 900px) {
-  .sec-head__meta {
-    grid-column: 1 / span 3;
+  .sec-head__label {
+    grid-column: 1 / span 4;
+    padding-top: 0.6em;
   }
   .sec-head__title {
-    grid-column: 4 / -1;
+    grid-column: 5 / -1;
   }
-  .sec-head--compact {
-  margin-bottom: clamp(16px, 3vw, 40px);
-}
-.sec-head--compact .sec-head__title {
-  font-size: var(--t-lead);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  font-weight: 500;
-  color: var(--fg-2);
-}
-.sec-head__aside {
-    grid-column: 4 / span 6;
+  .sec-head__aside {
+    grid-column: 5 / span 6;
   }
-}
-
-/* registration marks */
-.marks {
-  position: relative;
-}
-.marks::before,
-.marks::after {
-  content: '+';
-  position: absolute;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1;
-  color: var(--muted);
-  pointer-events: none;
-}
-.marks::before {
-  top: -7px;
-  left: -4px;
-}
-.marks::after {
-  bottom: -7px;
-  right: -4px;
 }
 
 /* icon */
@@ -239,73 +145,65 @@
   flex: none;
 }
 
-/* ---- reveal system (only when motion is allowed AND the script is running) ---- */
-html.motion.motion-ready [data-reveal='rule'] {
-  --rule-draw: 0;
+/* ---------- motion grammar: one entrance ----------
+   opacity 0 → 1 and 16px rise, 0.9s, expo-out. Used by on-load text (.rise-in),
+   by everything revealed on scroll ([data-reveal]) and by the mobile menu. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
 }
-html.motion.motion-ready [data-reveal='wipe'] {
-  clip-path: inset(0 0 100% 0);
-  transform: translateY(24px);
+.rise-in {
+  animation: rise var(--dur-reveal) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 60ms);
 }
-html.motion.motion-ready [data-reveal='fade'] {
+[data-reveal] {
+  transition:
+    opacity var(--dur-reveal) var(--ease-out),
+    transform var(--dur-reveal) var(--ease-out);
+}
+html.motion.motion-ready [data-reveal]:not(.is-in) {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(16px);
 }
-html.motion.motion-ready .w > .wi {
-  transform: translateY(108%);
-}
-.w {
-  display: inline-block;
-  overflow: hidden;
-  vertical-align: top;
-  padding-bottom: 0.12em;
-  margin-bottom: -0.12em;
-}
-.wi {
-  display: inline-block;
-  will-change: transform;
-}
-[data-reveal].is-revealed,
-.wi.is-revealed {
-  clip-path: none !important;
+html.motion-failed [data-reveal] {
   opacity: 1 !important;
   transform: none !important;
-  --rule-draw: 1;
-}
-html.motion-failed [data-reveal],
-html.motion-failed .w > .wi {
-  clip-path: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-  --rule-draw: 1 !important;
 }
 
-/* ---- page transition ---- */
+/* ---------- page transition: the page cross-fades, content then rises; the field glides ---------- */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {
-    animation: vt-out 0.4s var(--ease-in-out) both;
+    animation: vt-out 0.25s var(--ease-out) both;
   }
   ::view-transition-new(root) {
-    animation: vt-in 0.85s var(--ease-out) 0.1s both;
+    animation: vt-in 0.35s var(--ease-out) both;
   }
   ::view-transition-group(site-nav) {
     animation-duration: 0s;
+    z-index: 3;
+  }
+  ::view-transition-group(field) {
+    animation-duration: var(--dur-reveal);
+    animation-timing-function: var(--ease-out);
+    z-index: 1;
+  }
+  ::view-transition-old(field),
+  ::view-transition-new(field) {
+    height: 100%;
+    object-fit: cover;
+    animation-duration: 0.45s;
   }
 }
 @keyframes vt-out {
   to {
     opacity: 0;
-    transform: translateY(-14px);
   }
 }
 @keyframes vt-in {
   from {
-    clip-path: inset(100% 0 0 0);
-    transform: translateY(18px);
-  }
-  to {
-    clip-path: inset(0);
-    transform: none;
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -322,24 +220,4 @@ html.motion-failed .w > .wi {
     animation-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* CSS-only entrances for above-the-fold text (no JS dependency, no flash) */
-.rise {
-  display: block;
-  overflow: hidden;
-  padding: 0.06em 0.1em 0.2em 0.05em;
-  margin: -0.06em -0.1em -0.2em -0.05em;
-}
-.rise > span {
-  display: block;
-  animation: rise 1s var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 100ms + 80ms);
-}
-.appear {
-  animation: appear 0.9s var(--ease-out) 0.35s both;
-}
-
-.quiet-tags {
-  color: var(--muted);
 }

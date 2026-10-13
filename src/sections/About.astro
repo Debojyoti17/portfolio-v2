@@ -9,29 +9,28 @@ import Icon from '../components/Icon.astro';
 const edu = (await getEducation())[0];
 ---
 
-<section class="sec" id="about" aria-labelledby="about-title" data-section data-numbered data-label="About">
+<section class="sec" id="about" aria-labelledby="about-title">
   <div class="container">
     <SectionHead label="About" title="Student, researcher, builder" id="about-title" />
     <div class={`grid about__grid${hasProfile ? '' : ' about__grid--text'}`}>
       {hasProfile && (
-        <figure class="plate marks" data-reveal="wipe">
+        <figure class="plate" data-reveal>
           <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} loading="lazy" decoding="async" width="880" height="1100" />
-          <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
         </figure>
       )}
       <div class="about__text">
-        <div class="about__bio">
+        <div class="about__bio" data-reveal>
           {siteConfig.bio.map((p) => <p>{p}</p>)}
         </div>
         {edu && (
-          <div class="about__edu" data-reveal="fade">
+          <div class="about__edu" data-reveal>
             <p class="label">Education</p>
-            <p class="about__years">{edu.data.start} – {edu.data.end}{edu.data.endNote && <span class="about__note"> ({edu.data.endNote})</span>}</p>
             <p class="about__degree">{edu.data.title}</p>
-            <p class="tl__org">{edu.data.org}{edu.data.location ? `, ${edu.data.location}` : ''}</p>
+            <p class="about__org">{edu.data.org}{edu.data.location ? `, ${edu.data.location}` : ''}</p>
+            <p class="about__years">{edu.data.start} – {edu.data.end}{edu.data.endNote && ` (${edu.data.endNote})`}</p>
           </div>
         )}
-        <p><a class="btn" href={href('/about/')}>More about me<Icon name="arrow_forward" /></a></p>
+        <p data-reveal><a class="link action" href={href('/about/')}>More about me<Icon name="arrow_forward" /></a></p>
       </div>
     </div>
   </div>

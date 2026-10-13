@@ -9,11 +9,11 @@ const profile = siteConfig.social.github;
 ---
 
 {data && (
-  <section class="sec" id="github" aria-labelledby="github-title" data-section data-numbered data-label="Activity">
+  <section class="sec" id="github" aria-labelledby="github-title">
     <div class="container">
       <SectionHead label="Activity" title="Contributions on GitHub" id="github-title" />
       <div class="gh" role="img" aria-label={`${data.total} public contributions over the last year`}>
-        <div class="gh__grid" data-reveal="fade">
+        <div class="gh__grid" data-reveal>
           {data.weeks.map((w) => w.map((d) => (d ? <i class="gh__cell" data-l={d.level} title={`${d.count} on ${d.date}`}></i> : <i class="gh__cell" style="background:none"></i>)))}
         </div>
       </div>

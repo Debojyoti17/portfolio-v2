@@ -64,13 +64,11 @@ export const GET: APIRoute = async ({ props }) => {
     h('div', { position: 'absolute', left: 0, top: 0, width: 1200, height: 630, flexDirection: 'column', justifyContent: 'space-between', padding: '56px 64px', boxSizing: 'border-box' }, [
       h('div', { alignItems: 'center' }, [
         h('div', { fontFamily: 'Dot', fontWeight: 800, fontSize: 44, letterSpacing: 2 }, siteConfig.initials),
-        h('div', { width: 12, height: 12, background: '#ff4638', marginLeft: 10, marginTop: 8 }),
-        h('div', { fontFamily: 'Mono', fontSize: 20, marginLeft: 24, color: '#9c9b95', textTransform: 'uppercase', letterSpacing: 2 }, card.kicker),
+        h('div', { fontFamily: 'Mono', fontSize: 20, marginLeft: 20, color: '#9c9b95', textTransform: 'uppercase', letterSpacing: 2 }, card.kicker),
       ]),
       h('div', { flexDirection: 'column' }, [
         card.status
-          ? h('div', { alignItems: 'center', fontFamily: 'Dot', fontWeight: 800, fontSize: 26, marginBottom: 20, textTransform: 'uppercase' }, [
-              h('div', { width: 12, height: 12, background: '#ff4638', marginRight: 14 }),
+          ? h('div', { alignItems: 'center', fontFamily: 'Mono', fontSize: 22, letterSpacing: 2, color: '#c9c8c2', marginBottom: 20, textTransform: 'uppercase' }, [
               h('div', {}, card.status),
             ])
           : h('div', {}, ''),

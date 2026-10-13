@@ -179,10 +179,10 @@ button {
   content: '';
   position: absolute;
   left: 0;
-  top: 0.62em;
-  width: 7px;
-  height: 7px;
-  background: var(--accent);
+  top: 0.78em;
+  width: 0.7em;
+  height: 1px;
+  background: var(--fg-2);
 }
 .prose ol {
   counter-reset: li;
@@ -191,7 +191,7 @@ button {
   counter-increment: li;
 }
 .prose ol > li::before {
-  content: counter(li, decimal-leading-zero);
+  content: counter(li) '.';
   position: absolute;
   left: 0;
   font-family: var(--font-mono);
@@ -208,6 +208,12 @@ button {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
+  text-decoration-color: var(--rule-strong);
+  transition: text-decoration-color var(--dur-ui) var(--ease-out);
+}
+.prose a:hover,
+.prose a:focus-visible {
+  text-decoration-color: currentColor;
 }
 .prose code {
   font-family: var(--font-mono);
@@ -230,7 +236,7 @@ button {
 .prose blockquote {
   margin-left: 0;
   padding-left: 20px;
-  border-left: 2px solid var(--accent);
+  border-left: 1px solid var(--rule-strong);
   color: var(--fg);
 }
 .prose img {

@@ -10,7 +10,7 @@ const fmt = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: 'short', 
 
 <ul class="list">
   {notes.map((n) => (
-    <li class="list__item" data-reveal="fade">
+    <li class="list__item" data-reveal>
       <a class="list__link" href={href(`/notes/${n.id}/`)}>
         <p class="label list__meta"><time datetime={n.data.date.toISOString()}>{fmt.format(n.data.date)}</time></p>
         <div class="list__main">
