@@ -1,4 +1,4 @@
-/** Small, dependency-free UI behaviour: theme, nav, menu, clock, hints, filters, forms. */
+/** Small, dependency-free UI behaviour: theme, nav, menu, in-page anchors, clock, hints, filters, forms. */
 
 type Cleanup = () => void;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -19,6 +19,40 @@ function effectiveTheme(): 'light' | 'dark' {
   const attr = document.documentElement.getAttribute('data-theme');
   if (attr === 'light' || attr === 'dark') return attr;
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** Document position of an element's layout box (ignores the entrance transform it may still carry). */
+function layoutTop(el: HTMLElement): number {
+  let y = 0;
+  for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += n.offsetTop;
+  return y;
+}
+const headerOffset = () => parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+
+/** Scroll to an element (or the top), leaving room for the header, then move focus there. */
+export function scrollToTarget(el: HTMLElement | null): void {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const top = el ? Math.max(0, Math.min(max, layoutTop(el) - headerOffset())) : 0;
+  const lenis = (window as any).__lenis;
+  if (lenis) lenis.scrollTo(top, { force: true });
+  else window.scrollTo({ top, behavior: reduced() ? 'auto' : 'smooth' });
+  if (!el) return;
+  if (!el.matches('a, button, input, textarea, select, [tabindex]')) el.setAttribute('tabindex', '-1');
+  el.focus({ preventScroll: true });
+}
+
+/** After arriving on a page with #hash: make sure the target sits right under the header. */
+export function settleHash(): void {
+  const id = decodeURIComponent(location.hash.slice(1));
+  const el = id ? document.getElementById(id) : null;
+  if (!el) return;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const top = Math.max(0, Math.min(max, layoutTop(el) - headerOffset()));
+      if (Math.abs(top - window.scrollY) > 4) window.scrollTo({ top, behavior: 'instant' as ScrollBehavior });
+    }),
+  );
 }
 
 export function initUI(): Cleanup {
@@ -70,6 +104,7 @@ export function initUI(): Cleanup {
   /* mobile menu */
   const menu = document.querySelector<HTMLElement>('[data-menu]');
   const menuBtn = document.querySelector<HTMLButtonElement>('[data-menu-btn]');
+  let closeMenu = () => {};
   if (menu && menuBtn) {
     const label = menuBtn.querySelector('[data-menu-label]');
     const inertTargets = () => [document.querySelector('main'), document.querySelector('[data-footer]')].filter(Boolean) as HTMLElement[];
@@ -85,6 +120,7 @@ export function initUI(): Cleanup {
         menu.querySelector<HTMLElement>('a')?.focus({ preventScroll: true });
       }
     };
+    closeMenu = () => menu.classList.contains('is-open') && setOpen(false);
     on(menuBtn, 'click', () => setOpen(!menu.classList.contains('is-open')));
     on(menu, 'click', (e) => {
       if ((e.target as HTMLElement).closest('a')) setOpen(false);
@@ -104,14 +140,30 @@ export function initUI(): Cleanup {
     });
   }
 
-  /* back to top */
-  document.querySelectorAll<HTMLElement>('[data-top]').forEach((a) =>
-    on(a, 'click', (e) => {
-      e.preventDefault();
-      const l = (window as any).__lenis;
-      if (l) l.scrollTo(0);
-      else window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' });
-    }),
+  /* in-page anchors (#contact, #research, #top …).
+     One handler for every page: it runs before Astro's router and Lenis, closes the menu, scrolls
+     to the target with the header offset (scroll-padding-top on <html>) and moves focus there.
+     Links to an anchor on ANOTHER page are left to the router; see settleHash() for the landing. */
+  on(
+    document,
+    'click',
+    (e) => {
+      const ev = e as MouseEvent;
+      if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      const a = (ev.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || url.pathname !== location.pathname || url.search !== location.search) return;
+      if (!url.hash && !a.getAttribute('href')?.startsWith('#')) return;
+      const id = decodeURIComponent(url.hash.slice(1));
+      const target = id && id !== 'top' ? document.getElementById(id) : null;
+      if (id && id !== 'top' && !target) return;
+      ev.preventDefault();
+      closeMenu();
+      history.replaceState(history.state, '', url.hash || location.pathname + location.search);
+      scrollToTarget(target);
+    },
+    { capture: true },
   );
 
   /* local-time readout */

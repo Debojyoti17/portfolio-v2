@@ -13,7 +13,8 @@ export function initMotion(): () => void {
     duration: 1.1,
     easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     smoothWheel: true,
-    anchors: true,
+    // in-page anchors are handled once, in ui.ts, so they also work across view transitions
+    anchors: false,
   });
   (window as any).__lenis = lenis;
   let raf = 0;

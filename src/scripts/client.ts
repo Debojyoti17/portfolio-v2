@@ -2,7 +2,7 @@
  * Single client entry. Re-initialises page behaviour on every Astro view transition, and keeps
  * ONE particle field alive across pages (see stage/stage.ts).
  */
-import { applyStoredTheme, initUI } from './ui';
+import { applyStoredTheme, initUI, settleHash } from './ui';
 
 type FieldModule = typeof import('./stage/stage');
 
@@ -60,6 +60,7 @@ function startField() {
 function boot() {
   const gen = ++generation;
   cleanups.push(initUI());
+  settleHash();
   document.documentElement.classList.remove('motion-failed');
   let motionOk = reduce();
   idle(async () => {
