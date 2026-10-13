@@ -183,7 +183,8 @@ main {
   }
 }
 
-/* full-screen menu (small screens): fades in, items rise — the site's one entrance */
+/* full-screen menu (small screens): fades in, items rise in turn (the one entrance), a faint
+   particle horizon fills the space below them */
 .menu {
   position: fixed;
   inset: 0;
@@ -203,32 +204,62 @@ main {
   visibility: visible;
   transition: opacity var(--dur-ui) var(--ease-out), visibility 0s;
 }
+.menu__field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.menu__nav,
+.menu__foot {
+  position: relative;
+  z-index: 1;
+}
 .menu__list {
   border-top: 1px solid var(--rule);
 }
-.menu__item {
-  border-bottom: 1px solid var(--rule);
+.menu__item,
+.menu__foot {
   opacity: 0;
   transform: translateY(16px);
   transition: opacity var(--dur-reveal) var(--ease-out), transform var(--dur-reveal) var(--ease-out);
 }
-.menu.is-open .menu__item {
+.menu__item {
+  border-bottom: 1px solid var(--rule);
+}
+.menu.is-open .menu__item,
+.menu.is-open .menu__foot {
   opacity: 1;
   transform: none;
 }
 .menu.is-open .menu__item:nth-child(2) { transition-delay: 70ms; }
 .menu.is-open .menu__item:nth-child(3) { transition-delay: 140ms; }
 .menu.is-open .menu__item:nth-child(4) { transition-delay: 210ms; }
+.menu.is-open .menu__foot { transition-delay: 280ms; }
 .menu__link {
-  display: block;
+  display: grid;
+  gap: 8px;
   padding: 18px 0;
+}
+.menu__label {
   font-size: clamp(2.5rem, 12vw, 4.5rem);
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1;
 }
-.menu__link[aria-current='page'] {
+.menu__desc {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--fg-2);
+}
+.menu__link[aria-current='page'] .menu__label {
+  color: var(--fg-2);
+}
+.menu__link:active {
+  opacity: 0.6;
 }
 .menu__foot {
   margin-top: 40px;
@@ -247,11 +278,24 @@ main {
   border-top: 1px solid var(--rule-strong);
   overflow: hidden;
 }
+/* contact: a compact closing; the particle field gathers quietly behind it */
 .contact {
+  position: relative;
+  padding-block: clamp(56px, 8vw, 120px) clamp(48px, 6vw, 88px);
+}
+.contact__field {
+  position: absolute;
+  inset: 0 calc(-1 * var(--margin));
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.contact__inner {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 10px;
   justify-items: start;
-  padding-block: clamp(48px, 7vw, 104px) clamp(40px, 6vw, 80px);
 }
 .contact__title {
   font-family: var(--font-mono);
@@ -267,12 +311,12 @@ main {
   letter-spacing: -0.045em;
   font-weight: 600;
   overflow-wrap: anywhere;
-  background-size: 0 0.05em;
 }
+/* the email: the one large link, with a subtle magnetic pull toward the cursor (cursor.ts) */
 .contact__mail a {
-  background-image: linear-gradient(currentColor, currentColor);
+  display: inline-block;
   background-size: 0 0.05em;
-  background-position: 0 100%;
+  will-change: transform;
 }
 .contact__mail a:hover,
 .contact__mail a:focus-visible {

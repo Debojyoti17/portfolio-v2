@@ -1,8 +1,9 @@
 /**
- * Single client entry. Re-initialises page behaviour on every Astro view transition, and keeps
- * ONE particle field alive across pages (see stage/stage.ts).
+ * Single client entry. Re-initialises page behaviour on every Astro view transition, keeps the
+ * particle fields alive across pages (stage/stage.ts) and the continuity between them (continuity.ts).
  */
 import { applyStoredTheme, initUI, settleHash } from './ui';
+import { arrived, leaving } from './continuity';
 
 type FieldModule = typeof import('./stage/stage');
 
@@ -12,33 +13,53 @@ let field: FieldModule | null = null;
 let fieldLoading: Promise<void> | null = null;
 let gateArmed = false;
 
+const root = document.documentElement;
 const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const constrained = () => matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
 const idle = (fn: () => void, timeout = 1200) =>
   'requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, 150);
 
+/** Resolves once the page has loaded and the main thread has a quiet moment (the GPU process is
+ *  still starting up during load, and creating a WebGL context then blocks for a long time). */
+const settled = () =>
+  new Promise<void>((resolve) => {
+    const go = () => idle(() => resolve(), 1000);
+    if (document.readyState === 'complete') go();
+    else window.addEventListener('load', go, { once: true });
+  });
+
 function loadField(): Promise<void> {
   if (!fieldLoading) {
-    fieldLoading = import('./stage/stage')
-      .then((m) => {
+    fieldLoading = Promise.all([import('./stage/stage'), settled(), document.fonts?.ready])
+      .then(([m]) => {
         if (m.initField()) {
           field = m;
           m.attachField();
-        }
+          m.pageReady();
+        } else root.classList.remove('intro');
       })
-      .catch((err) => console.warn('[field] static fallback in use:', err));
+      .catch((err) => {
+        root.classList.remove('intro');
+        console.warn('[field] static fallback in use:', err);
+      });
   }
   return fieldLoading;
 }
 
-/** Bring the field in when a page needs it. Phones wait for the first touch or scroll. */
+/** Bring the fields in. The first visit to the home page starts at once (the name assembles);
+ *  otherwise desktops start when idle and phones on the first touch or scroll. */
 function startField() {
   if (reduce()) return;
   if (field) {
-    field.attachField();
+    field.pageReady();
     return;
   }
-  if (!document.querySelector('[data-field-slot]')) return;
+  if (root.classList.contains('intro')) {
+    void loadField();
+    return;
+  }
+  const needed = document.querySelector('[data-field-slot], [data-spec-slot]') || matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (!needed) return;
   if (!constrained()) {
     idle(() => void loadField(), 2000);
     return;
@@ -61,7 +82,7 @@ function boot() {
   const gen = ++generation;
   cleanups.push(initUI());
   settleHash();
-  document.documentElement.classList.remove('motion-failed');
+  root.classList.remove('motion-failed');
   let motionOk = reduce();
   idle(async () => {
     if (gen !== generation || reduce()) return;
@@ -75,15 +96,21 @@ function boot() {
       console.warn('[motion] disabled:', err);
     }
   });
+  if (!reduce() && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    import('./cursor').then(({ initCursor }) => {
+      if (gen === generation) cleanups.push(initCursor());
+    });
+  }
   startField();
   // Safety net: never leave content hidden if motion could not start.
   window.setTimeout(() => {
-    if (gen === generation && !motionOk) document.documentElement.classList.add('motion-failed');
+    if (gen === generation && !motionOk) root.classList.add('motion-failed');
   }, 6000);
 }
 
 function teardown() {
   generation++;
+  field?.pageLeave();
   cleanups.forEach((c) => {
     try {
       c();
@@ -94,11 +121,12 @@ function teardown() {
   cleanups = [];
 }
 
-document.addEventListener('astro:before-preparation', () => field?.prepareLeave());
+document.addEventListener('astro:before-preparation', (e) => leaving(e, field));
 document.addEventListener('astro:before-swap', teardown);
 document.addEventListener('astro:after-swap', () => {
   applyStoredTheme();
   // synchronous: the new page's view-transition snapshot must already contain the field
-  field?.attachField();
+  arrived(field);
 });
+document.addEventListener('menu:toggle', (e) => field?.menuToggled((e as CustomEvent<boolean>).detail));
 document.addEventListener('astro:page-load', boot);

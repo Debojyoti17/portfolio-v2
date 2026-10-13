@@ -6,6 +6,7 @@ import Icon from './Icon.astro';
 import ThemeToggle from './ThemeToggle.astro';
 
 const pathname = Astro.url.pathname;
+const contactDescription = 'Email and GitHub';
 const notes = await getNotes();
 const projects = await getProjects();
 const items = siteConfig.nav.filter((i) => {
@@ -45,14 +46,20 @@ const items = siteConfig.nav.filter((i) => {
 </header>
 
 <div class="menu" id="menu" data-menu>
-  <nav aria-label="Mobile">
+  <div class="menu__field" data-spec-slot data-menu-field data-scene="dust" data-mode="ambient" data-anchor-y="-0.42" data-opacity="0.5" data-enter="flow" aria-hidden="true"></div>
+  <nav class="menu__nav" aria-label="Mobile">
     <ul class="menu__list">
       {items.map((i) => (
         <li class="menu__item">
-          <a class="menu__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>{i.label}</a>
+          <a class="menu__link" href={href(i.href)} aria-current={isActive(pathname, i.href) ? 'page' : undefined}>
+            <span class="menu__label">{i.label}</span>
+            {i.description && <span class="menu__desc">{i.description}</span>}
+          </a>
         </li>
       ))}
-      <li class="menu__item"><a class="menu__link" href="#contact">Contact</a></li>
+      <li class="menu__item">
+        <a class="menu__link" href="#contact"><span class="menu__label">Contact</span><span class="menu__desc">{contactDescription}</span></a>
+      </li>
     </ul>
   </nav>
   <div class="menu__foot">

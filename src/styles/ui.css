@@ -136,6 +136,72 @@ button.action {
   }
 }
 
+/* ---------- ring cursor (fine pointers, motion allowed; cursor.ts) ----------
+   The one round UI shape: it echoes the field's circular touch radius. Labels name what a click does.
+   The native cursor is hidden only where the ring carries a label; focus outlines are untouched. */
+.cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  color: var(--fg);
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+.cursor.is-on {
+  opacity: 1;
+}
+.cursor.is-hidden {
+  opacity: 0;
+}
+.cursor__ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width var(--dur-ui) var(--ease-out), height var(--dur-ui) var(--ease-out), background-color var(--dur-ui), opacity var(--dur-micro);
+}
+.cursor.is-link .cursor__ring {
+  width: 40px;
+  height: 40px;
+}
+.cursor.is-label .cursor__ring {
+  width: 68px;
+  height: 68px;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+}
+.cursor.is-down .cursor__ring {
+  opacity: 0.6;
+}
+.cursor__label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--dur-micro);
+}
+.cursor.is-label .cursor__label {
+  opacity: 1;
+}
+html.has-cursor [data-cursor],
+html.has-cursor [data-cursor] *,
+html.has-cursor [data-field-slot] {
+  cursor: none;
+}
+
 /* icon */
 .icon {
   display: inline-block;

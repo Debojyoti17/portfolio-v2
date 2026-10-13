@@ -22,22 +22,25 @@ const action = siteConfig.contactForm.action;
 
 <footer class="footer" data-footer>
   <div class="container">
-    <section class="contact" id="contact" aria-labelledby="contact-title" data-reveal>
-      <h2 class="contact__title" id="contact-title">Contact</h2>
-      <p class="contact__mail"><a class="link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}</a></p>
-      {github && (
-        <p class="contact__more">
-          <a class="link action" href={github} rel="noopener me"><Icon name="github" />GitHub<Icon name="arrow_outward" /></a>
-        </p>
-      )}
-      {features.contactForm && (
-        <form class="form" method="post" action={action || undefined} data-contact-form data-mailto={siteConfig.email}>
-          <label><span class="label">Name</span><input name="name" autocomplete="name" required /></label>
-          <label><span class="label">Email</span><input name="email" type="email" autocomplete="email" required /></label>
-          <label><span class="label">Message</span><textarea name="message" required></textarea></label>
-          <div><button class="link action" type="submit">Send<Icon name="arrow_forward" /></button></div>
-        </form>
-      )}
+    <section class="contact" id="contact" aria-labelledby="contact-title">
+      <div class="contact__field" data-spec-slot data-scene="gather" data-mode="ambient" data-anchor="0.62" data-anchor-y="-0.12" data-opacity="0.65" data-enter="gather" aria-hidden="true"></div>
+      <div class="contact__inner" data-reveal>
+        <h2 class="contact__title" id="contact-title">Contact</h2>
+        <p class="contact__mail"><a class="link" href={`mailto:${siteConfig.email}`} data-magnetic>{siteConfig.email}</a></p>
+        {github && (
+          <p class="contact__more">
+            <a class="link action" href={github} rel="noopener me" data-cursor="Open"><Icon name="github" />GitHub<Icon name="arrow_outward" /></a>
+          </p>
+        )}
+        {features.contactForm && (
+          <form class="form" method="post" action={action || undefined} data-contact-form data-mailto={siteConfig.email}>
+            <label><span class="label">Name</span><input name="name" autocomplete="name" required /></label>
+            <label><span class="label">Email</span><input name="email" type="email" autocomplete="email" required /></label>
+            <label><span class="label">Message</span><textarea name="message" required></textarea></label>
+            <div><button class="link action" type="submit">Send<Icon name="arrow_forward" /></button></div>
+          </form>
+        )}
+      </div>
     </section>
 
     <div class="grid footer__grid">
@@ -62,7 +65,7 @@ const action = siteConfig.contactForm.action;
           <p class="label footer__title">Elsewhere</p>
           <ul class="footer__list">
             {elsewhere.map((s) => (
-              <li><a class="link" href={s.url} rel="noopener me">{s.label}<Icon name="arrow_outward" /></a></li>
+              <li><a class="link" href={s.url} rel="noopener me" data-cursor="Open">{s.label}<Icon name="arrow_outward" /></a></li>
             ))}
             {hasCV && <li><a class="link" href={href(siteConfig.files.cv)} download>CV (PDF)<Icon name="download" /></a></li>}
           </ul>

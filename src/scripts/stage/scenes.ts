@@ -9,10 +9,10 @@
  */
 import { rng } from '../../lib/hash';
 
-export const SCENE_NAMES = ['scene', 'noise', 'leaf', 'ghost', 'graph', 'network', 'tree'] as const;
+export const SCENE_NAMES = ['scene', 'noise', 'leaf', 'ghost', 'graph', 'network', 'tree', 'gather', 'dust'] as const;
 export type SceneName = (typeof SCENE_NAMES)[number];
 
-/** Scenes that can represent a project (one per project, used on its card and its page). */
+/** Scenes that can represent a project (one per project: its specimen and its page). */
 export const PROJECT_SCENES = ['leaf', 'ghost', 'graph', 'network', 'tree'] as const;
 export type ProjectScene = (typeof PROJECT_SCENES)[number];
 
@@ -417,6 +417,51 @@ function dirTree(n: number, r: R) {
   return { home: o, nodes, links, role, id, tt, arcPoint: arc };
 }
 
+/* ------------------------------------------------------------- ambient */
+
+/** Contact: a quiet, slowly turning cluster with a sparse halo that fills its block. */
+function gather(n: number, r: R): Float32Array {
+  const o = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    if (r() < 0.72) {
+      // a soft sphere, denser toward its centre
+      const d = norm([gauss(r), gauss(r), gauss(r)]);
+      const rad = 1.25 * Math.pow(r(), 0.55);
+      put(o, i, mul(d, rad));
+    } else {
+      put(o, i, [gauss(r) * 2.6 - 0.8, gauss(r) * 1.1, gauss(r) * 0.8]);
+    }
+  }
+  return o;
+}
+
+/** Menu: a calm horizon of particles low in the frame. */
+function dust(n: number, r: R): Float32Array {
+  const o = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = (r() * 2 - 1) * 4.2;
+    const z = (r() * 2 - 1) * 2.4;
+    const y = 0.18 * Math.sin(x * 1.3 + z * 0.9) + 0.1 * Math.sin(x * 3.1 - z * 2.2) + gauss(r) * 0.03;
+    put(o, i, rotX([x, y - 1.2, z], -0.45));
+  }
+  return o;
+}
+
+/**
+ * A scene from given positions (e.g. the name sampled from rendered text). Positions are already in
+ * home space; no sway, generic behaviour.
+ */
+export function customScene(home: Float32Array, n: number, size = 1): SceneData {
+  const seed = makeSeeds(n, 4242);
+  const look0 = baseLook(n, seed);
+  for (let i = 0; i < n; i++) {
+    look0[i * 4] = 0.75 + 0.25 * seed[i * 4 + 2];
+    look0[i * 4 + 1] = size;
+    look0[i * 4 + 2] = 0;
+  }
+  return { name: 'noise', n, home, seed, look0, view: { yaw: 0, pitch: 0 }, rotate: false, meta: { custom: true } };
+}
+
 /* ---------------------------------------------------------------- builder */
 
 export function buildScene(name: SceneName, n: number): SceneData {
@@ -490,6 +535,18 @@ export function buildScene(name: SceneName, n: number): SceneData {
       meta.failed = failed;
       break;
     }
+    case 'gather':
+      home = gather(n, r);
+      for (let i = 0; i < n; i++) look0[i * 4 + 2] = seed[i * 4 + 3] < 0.012 ? 1 : 0;
+      view = { yaw: 0, pitch: 0.15 };
+      rotate = true;
+      break;
+    case 'dust':
+      home = dust(n, r);
+      for (let i = 0; i < n; i++) look0[i * 4 + 2] = 0;
+      view = { yaw: 0, pitch: 0 };
+      rotate = true;
+      break;
     case 'tree': {
       const g = dirTree(n, r);
       home = g.home;

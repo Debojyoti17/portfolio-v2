@@ -24,7 +24,7 @@ const items = [
   <ul class={`plinks ${className}`.trim()}>
     {items.map((i) => (
       <li>
-        <a class="link plink" href={i.url} rel="noopener" aria-label={i.title}>
+        <a class="link plink" href={i.url} rel="noopener" aria-label={i.title} data-cursor="Open">
           <Icon name={i.icon} class="plink__icon" />{i.label}
         </a>
       </li>

@@ -1,628 +1,569 @@
 /**
- * The particle field: ONE persistent WebGL canvas shared by the whole site.
+ * The site's particle fields, built on one engine (engine.ts):
  *
- * Each page may contain a slot (`[data-field-slot]`): the home hero, a project page, the 404 page.
- * On every Astro view transition the same canvas is moved into the new page's slot and the particles
- * flow from the form they last held into the new page's form, so the field reads as one continuous
- * material. Pages without a slot simply park it.
+ *  main     ONE persistent field, carried across page transitions: the home hero, a project page,
+ *           the 404 page. On the very first visit it assembles the owner's name, then the landscape.
+ *  preview  fine pointers only: a floating specimen that follows the cursor over project rows and
+ *           morphs from one project's form to the next.
+ *  pool     two small stages lent to whichever specimen slots are near the viewport: project rows on
+ *           touch screens, the next-project link, the contact block and the menu backdrop.
  *
- * Physics: a small CPU spring engine (a few thousand particles). A finger or cursor parts the
- * particles, a tap sends a ripple, and each scene can add one meaningful behaviour (behaviours.ts).
- * Touch is read through passive listeners, so page scrolling is never blocked.
+ * At most four WebGL contexts exist (three on phones), whatever the page holds.
  */
-import {
-  AdditiveBlending,
-  BufferAttribute,
-  BufferGeometry,
-  NormalBlending,
-  PerspectiveCamera,
-  Points,
-  Scene,
-  ShaderMaterial,
-  Vector3,
-  WebGLRenderer,
-} from 'three';
-import { SCENE_NAMES, buildScene, isSceneName, type SceneData, type SceneName } from './scenes';
-import { makeBehaviour, type Behaviour, type Ptr } from './behaviours';
-import { fragmentShader, vertexShader } from './shaders';
-import { rng } from '../../lib/hash';
+import { Stage, allStages, input, isSmall, removePointer, stats, upsertPointer, wake, warmScenes, type AttachOptions } from './engine';
+import { customScene, isSceneName, type SceneName } from './scenes';
 
-const FOV = 38;
-const CAM_Z = 10;
-const HALF_H = Math.tan((FOV * Math.PI) / 360) * CAM_Z;
-const SLOTS = 2;
-/** seconds each particle takes to travel to its new form */
-const MORPH = 1.1;
-/** spread of departure times across particles */
-const STAGGER = 0.6;
+const fine = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+const N_MAIN = isSmall() ? 5000 : 10000;
+const N_SPEC = isSmall() ? 2200 : 3000;
+const N_PREVIEW = 4000;
+const POOL = 2;
+const INTRO_KEY = 'dbm-intro';
 
-type Mode = 'hero' | 'viewport';
-
-const isSmall = () => matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
-const isCoarse = () => matchMedia('(pointer: coarse)').matches;
-const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-
-function cssColor(name: string, fallback: string): [number, number, number] {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-  const c = document.createElement('canvas').getContext('2d');
-  if (!c) return [0.5, 0.5, 0.5];
-  c.fillStyle = '#000';
-  c.fillStyle = v;
-  const m = /^#([0-9a-f]{6})$/i.exec(c.fillStyle as string);
-  if (!m) return [0.5, 0.5, 0.5];
-  const n = parseInt(m[1], 16);
-  return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
-
-/* ------------------------------------------------------------------ input */
-
-interface GPtr {
-  id: string;
-  x: number;
-  y: number;
-}
-const input = { pointers: [] as GPtr[] };
-const upsert = (id: string, x: number, y: number) => {
-  const p = input.pointers.find((q) => q.id === id);
-  if (p) { p.x = x; p.y = y; } else input.pointers.push({ id, x, y });
-};
-const remove = (id: string) => {
-  input.pointers = input.pointers.filter((q) => q.id !== id);
-};
-
-interface Slot {
-  x: number;
-  y: number;
-  tx: number;
-  ty: number;
-  amt: number;
-  on: boolean;
-}
-interface Ripple {
-  x: number;
-  y: number;
-  t0: number;
-}
-interface Built {
-  data: SceneData;
-  beh: Behaviour;
-}
-
-/* ------------------------------------------------------------------ field */
-
-class Field {
-  readonly n: number;
-  readonly canvas: HTMLCanvasElement;
-  private renderer: WebGLRenderer;
-  private material: ShaderMaterial;
-  private scene3 = new Scene();
-  private camera = new PerspectiveCamera(FOV, 1, 0.1, 100);
-  private posAttr: BufferAttribute;
-  private lookAttr: BufferAttribute;
-  private pos: Float32Array;
-  private vel: Float32Array;
-  private lookBuf: Float32Array;
-  private fromPos: Float32Array;
-  private fromLook: Float32Array;
-  private seed: Float32Array;
-  private kArr: Float32Array;
-  private cArr: Float32Array;
-  private uniforms = {
-    uSize: { value: 30 },
-    uPx: { value: 1 },
-    uOpacity: { value: 1 },
-    uInk: { value: new Vector3(0.1, 0.1, 0.1) },
-    uAccent: { value: new Vector3(0.9, 0.1, 0.1) },
-  };
-
-  private cache = new Map<SceneName, Built>();
-  private cur: Built | null = null;
-  sceneName: SceneName | null = null;
-  private mode: Mode = 'hero';
-  private side = false;
-  slot: HTMLElement | null = null;
-  private attachedOnce = false;
-
-  private w = 1;
-  private h = 1;
-  private halfW = 5;
-  private halfH = HALF_H;
-  private scale = 1;
-  private offX = 0;
-  private offY = 0;
-  private R = 1;
-  private marginPx = 40;
-  private baseSize = 32;
-  private slots: Slot[] = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, tx: 0, ty: 0, amt: 0, on: false }));
-  private ripples: Ripple[] = [];
-  private lastInput = -99;
-  t = 0;
-  private morphT0 = -99;
-  morphing = false;
-
-  visible = true;
-  private raf = 0;
-  private last = 0;
-  private lastStep = 0;
-  private skip = false;
-  private ro = new ResizeObserver(() => this.resize());
-  private io = new IntersectionObserver((e) => {
-    this.visible = e[e.length - 1]?.isIntersecting ?? true;
-    if (this.visible) this.start();
-  }, { rootMargin: '80px' });
-
-  stats = { frames: 0, sumMs: 0, maxMs: 0, recent: [] as number[], dts: [] as number[], attachMs: 0 };
-
-  constructor() {
-    this.canvas = document.createElement('canvas');
-    this.canvas.className = 'field__canvas';
-    this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setClearColor(0x000000, 0);
-    const n = (this.n = isSmall() ? 5000 : 10000);
-    this.camera.position.z = CAM_Z;
-    this.pos = new Float32Array(n * 3);
-    this.vel = new Float32Array(n * 3);
-    this.lookBuf = new Float32Array(n * 4);
-    this.fromPos = new Float32Array(n * 3);
-    this.fromLook = new Float32Array(n * 4);
-    this.seed = new Float32Array(n * 4);
-    const r = rng(424242);
-    for (let i = 0; i < this.seed.length; i++) this.seed[i] = r();
-    this.kArr = new Float32Array(n);
-    this.cArr = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const k = 26 * (0.75 + 0.5 * this.seed[i * 4]);
-      this.kArr[i] = k;
-      this.cArr[i] = 2 * Math.sqrt(k) * 0.5;
-    }
-    this.posAttr = new BufferAttribute(this.pos, 3);
-    this.posAttr.setUsage(35048);
-    this.lookAttr = new BufferAttribute(this.lookBuf, 4);
-    this.lookAttr.setUsage(35048);
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', this.posAttr);
-    geometry.setAttribute('aLook', this.lookAttr);
-    geometry.setAttribute('aSeed', new BufferAttribute(this.seed, 4));
-    this.material = new ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader,
-      fragmentShader,
-      transparent: true,
-      depthWrite: false,
-      depthTest: false,
-    });
-    const points = new Points(geometry, this.material);
-    points.frustumCulled = false;
-    this.scene3.add(points);
-    this.baseSize = isSmall() ? 40 : 32;
-    this.applyTheme();
-  }
-
-  private build(name: SceneName): Built {
-    let b = this.cache.get(name);
-    if (!b) {
-      const data = buildScene(name, this.n);
-      b = { data, beh: makeBehaviour(data) };
-      this.cache.set(name, b);
-    }
-    return b;
-  }
-
-  /** Build the remaining scenes in idle time so a navigation never has to. */
-  warm() {
-    const queue = SCENE_NAMES.filter((s) => !this.cache.has(s));
-    const ric = (cb: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 200));
-    const step = () => {
-      const s = queue.shift();
-      if (!s) return;
-      this.build(s);
-      ric(step);
-    };
-    ric(step);
-  }
-
-  applyTheme() {
-    const ink = cssColor('--stage-ink', '#141416');
-    const acc = cssColor('--accent', '#e4161f');
-    this.uniforms.uInk.value.set(...ink);
-    this.uniforms.uAccent.value.set(...acc);
-    const dark = ink[0] + ink[1] + ink[2] > 1.5;
-    this.material.blending = dark ? AdditiveBlending : NormalBlending;
-    this.uniforms.uSize.value = this.baseSize * (dark ? 1 : 1.08);
-  }
-
-  /** Move the canvas into this page's slot (or park it) and flow into the slot's form. */
-  attach(slot: HTMLElement | null) {
-    if (!slot) {
-      this.park();
-      return;
-    }
-    const scene: SceneName = isSceneName(slot.dataset.scene) ? slot.dataset.scene : 'scene';
-    if (slot !== this.slot) {
-      this.slot?.classList.remove('is-live');
-      this.ro.disconnect();
-      this.io.disconnect();
-      slot.appendChild(this.canvas);
-      this.slot = slot;
-      this.mode = slot.dataset.mode === 'viewport' ? 'viewport' : 'hero';
-      this.ro.observe(slot);
-      this.io.observe(slot);
-      this.visible = true;
-      this.resize(true);
-    }
-    if (!this.attachedOnce) {
-      setTimeout(() => this.warm(), 2500);
-      // very first appearance: the particles start as uninitialised noise and fade in
-      for (let i = 0; i < this.n; i++) {
-        this.pos[i * 3] = (this.seed[i * 4 + 1] - 0.5) * this.halfW * 1.8;
-        this.pos[i * 3 + 1] = (this.seed[i * 4 + 2] - 0.5) * this.halfH * 1.8;
-        this.pos[i * 3 + 2] = (this.seed[i * 4 + 3] - 0.5) * 3;
-        this.lookBuf[i * 4] = 0;
-      }
-    }
-    if (scene !== this.sceneName) this.setScene(scene);
-    slot.classList.toggle('is-instant', this.attachedOnce);
-    slot.classList.add('is-live');
-    this.attachedOnce = true;
-    // draw immediately so the view-transition snapshot of the new page already shows the field
-    this.render(0);
-    this.start();
-  }
-
-  park() {
-    this.stop();
-    this.slot?.classList.remove('is-live');
-    this.ro.disconnect();
-    this.io.disconnect();
-    this.canvas.remove();
-    this.slot = null;
-  }
-
-  private setScene(name: SceneName) {
-    this.fromPos.set(this.pos);
-    this.fromLook.set(this.lookBuf);
-    this.cur = this.build(name);
-    this.sceneName = name;
-    this.morphT0 = this.t;
-    this.morphing = true;
-  }
-
-  resize(force = false) {
-    if (!this.slot) return;
-    const rect = this.slot.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width));
-    const h = Math.max(1, Math.round(rect.height));
-    if (!force && w === this.w && h === this.h) return;
-    this.w = w;
-    this.h = h;
-    const dpr = Math.min(window.devicePixelRatio || 1, isSmall() ? 1.5 : 1.75);
-    this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(w, h, false);
-    this.uniforms.uPx.value = dpr * Math.min(1.2, Math.max(0.6, h / 900)) * (this.mode === 'hero' ? 1 : 1.3);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-    this.halfH = HALF_H;
-    this.halfW = HALF_H * this.camera.aspect;
-    // the desktop hero lays the field beside the name; everywhere else it is centred in its frame
-    this.side = this.mode === 'hero' && window.innerWidth >= 900;
-    if (this.side) {
-      this.scale = Math.min((0.56 * this.halfW) / 3.5, (0.86 * this.halfH) / 2.25);
-      this.offX = 0.2 * this.halfW;
-    } else {
-      const fit = this.mode === 'hero' ? 0.94 : 0.82;
-      this.scale = Math.min((fit * this.halfW) / 3.5, ((this.mode === 'hero' ? 0.9 : 0.8) * this.halfH) / 2.25);
-      this.offX = 0;
-    }
-    // the landscape sits high in its own bounds; on phones lower it so it meets the name below
-    this.offY = this.mode === 'hero' && !this.side ? -0.04 * this.halfH : 0;
-    const rPx = Math.min(115, Math.max(46, 0.13 * Math.min(w, h))) * (isCoarse() ? 1.15 : 1);
-    this.marginPx = rPx;
-    this.R = rPx * ((2 * this.halfH) / h);
-  }
-
-  tap(cx: number, cy: number) {
-    if (!this.slot || !this.cur) return;
-    const rect = this.slot.getBoundingClientRect();
-    if (cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
-    const wx = ((cx - rect.left) / rect.width * 2 - 1) * this.halfW;
-    const wy = -(((cy - rect.top) / rect.height) * 2 - 1) * this.halfH;
-    this.ripples.push({ x: wx, y: wy, t0: this.t });
-    if (this.ripples.length > 4) this.ripples.shift();
-    this.cur.beh.tap((wx - this.offX) / this.scale, (wy - this.offY) / this.scale);
-    this.lastInput = this.t;
-    this.start();
-  }
-
-  /* ---------------------------------------------------------------- loop */
-
-  start() {
-    if (this.raf || !this.slot || !this.visible || document.hidden) return;
-    this.last = this.lastStep = performance.now();
-    this.raf = requestAnimationFrame(this.frame);
-  }
-  stop() {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    this.raf = 0;
-  }
-  private frame = (now: number) => {
-    this.raf = 0;
-    if (!this.slot || !this.visible || document.hidden) return;
-    this.raf = requestAnimationFrame(this.frame);
-    const frameDt = (now - this.last) / 1000 || 0.016;
-    this.last = now;
-    this.stats.dts.push(frameDt * 1000);
-    if (this.stats.dts.length > 600) this.stats.dts.shift();
-    // half rate while nobody interacts and nothing is changing
-    if (!this.morphing && this.t - this.lastInput > 3) {
-      this.skip = !this.skip;
-      if (this.skip) return;
-    }
-    const dt = Math.min(0.04, (now - this.lastStep) / 1000 || 0.016);
-    this.lastStep = now;
-    const t0 = performance.now();
-    this.render(Math.min(0.033, dt));
-    const ms = performance.now() - t0;
-    this.stats.frames++;
-    this.stats.sumMs += ms;
-    if (ms > this.stats.maxMs) this.stats.maxMs = ms;
-    this.stats.recent.push(ms);
-    if (this.stats.recent.length > 240) this.stats.recent.shift();
-  };
-
-  /** advance the simulation by dt and draw */
-  render(dt: number) {
-    if (!this.slot || !this.cur) return;
-    this.t += dt;
-    const t = this.t;
-    const rect = this.slot.getBoundingClientRect();
-    if (rect.width > 0 && (Math.abs(rect.width - this.w) > 1.5 || Math.abs(rect.height - this.h) > 1.5)) this.resize();
-
-    // pointers → smoothed slots
-    const gp = input.pointers;
-    let any = false;
-    for (let j = 0; j < SLOTS; j++) {
-      const s = this.slots[j], g = gp[j];
-      let on = false;
-      if (g) {
-        const m = this.marginPx;
-        on = g.x >= rect.left - m && g.x <= rect.right + m && g.y >= rect.top - m && g.y <= rect.bottom + m;
-        if (on) {
-          const wx = ((g.x - rect.left) / rect.width * 2 - 1) * this.halfW;
-          const wy = -(((g.y - rect.top) / rect.height) * 2 - 1) * this.halfH;
-          if (!s.on && s.amt < 0.05) { s.x = wx; s.y = wy; }
-          s.tx = wx;
-          s.ty = wy;
-        }
-      }
-      s.on = on;
-      s.amt += ((on ? 1 : 0) - s.amt) * (1 - Math.exp(-dt * (on ? 14 : 5)));
-      if (on) {
-        s.x += (s.tx - s.x) * (1 - Math.exp(-dt * 22));
-        s.y += (s.ty - s.y) * (1 - Math.exp(-dt * 22));
-        any = true;
-      }
-    }
-    if (any) this.lastInput = t;
-
-    const ptrWorld: Ptr[] = [];
-    const ptrHome: Ptr[] = [];
-    for (const s of this.slots) {
-      if (s.amt < 0.02) continue;
-      ptrWorld.push({ x: s.x, y: s.y, amt: s.amt });
-      ptrHome.push({ x: (s.x - this.offX) / this.scale, y: (s.y - this.offY) / this.scale, amt: s.amt });
-    }
-    this.ripples = this.ripples.filter((r) => t - r.t0 < 1.2);
-
-    const { data, beh } = this.cur;
-    if (dt > 0) {
-      beh.update({
-        t, dt, worldR: this.R, scale: this.scale, origin: { x: this.offX, y: this.offY },
-        ptrHome, ptrWorld, pos: this.pos, idle: t - this.lastInput,
-      });
-    }
-
-    /* ---- physics ---- */
-    const { pos, vel, kArr, cArr, lookBuf, fromPos, fromLook } = this;
-    const home = data.home, hd = beh.hdyn, look = beh.look, seed = this.seed;
-    const n = this.n;
-    const mx = ptrWorld.length ? ptrWorld[0].x / this.halfW : 0;
-    const yaw = data.view.yaw + (data.rotate ? Math.sin(t * 0.18) * 0.16 + mx * 0.08 : 0);
-    const pitch = data.view.pitch;
-    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const scale = this.scale, offX = this.offX, offY = this.offY;
-    const R = this.R, R2 = R * R;
-    const breath = 0.028;
-    const np = ptrWorld.length, nr = this.ripples.length;
-    const ringSpeed = R * 5.5;
-    const rx: number[] = [], ry: number[] = [], rrad: number[] = [], ramp: number[] = [];
-    for (const r of this.ripples) {
-      const age = t - r.t0;
-      rx.push(r.x);
-      ry.push(r.y);
-      rrad.push(age * ringSpeed);
-      ramp.push(Math.exp(-age * 1.9));
-    }
-    const bandW = 0.5 * R;
-    const morphing = this.morphing;
-    const mt = t - this.morphT0;
-    if (morphing && mt > MORPH + STAGGER) this.morphing = false;
-
-    for (let i = 0, i3 = 0, i4 = 0; i < n; i++, i3 += 3, i4 += 4) {
-      const hx = home[i3] + hd[i3], hy = home[i3 + 1] + hd[i3 + 1], hz = home[i3 + 2] + hd[i3 + 2];
-      const x1 = hx * cy + hz * sy;
-      const z1 = -hx * sy + hz * cy;
-      const y1 = hy * cp - z1 * sp;
-      const z2 = hy * sp + z1 * cp;
-      let tx = x1 * scale + offX + Math.sin(t * 0.55 + seed[i4] * 60) * breath;
-      let ty = y1 * scale + offY + Math.cos(t * 0.43 + seed[i4 + 1] * 50) * breath;
-      let tz = z2 * scale;
-      let la = look[i4], ls = look[i4 + 1], lc = look[i4 + 2];
-      if (morphing) {
-        const tm = (mt - seed[i4 + 2] * STAGGER) / MORPH;
-        if (tm < 1) {
-          const e = tm <= 0 ? 0 : easeInOut(tm);
-          const lift = Math.sin(Math.PI * e);
-          tx = fromPos[i3] + (tx - fromPos[i3]) * e + (seed[i4 + 1] - 0.5) * lift * 1.4;
-          ty = fromPos[i3 + 1] + (ty - fromPos[i3 + 1]) * e + (seed[i4 + 3] - 0.5) * lift * 1.0;
-          tz = fromPos[i3 + 2] + (tz - fromPos[i3 + 2]) * e + lift * 1.2;
-          la = fromLook[i4] + (la - fromLook[i4]) * e;
-          ls = fromLook[i4 + 1] + (ls - fromLook[i4 + 1]) * e;
-          lc = fromLook[i4 + 2] + (lc - fromLook[i4 + 2]) * e;
-        }
-      }
-      lookBuf[i4] = la;
-      lookBuf[i4 + 1] = ls;
-      lookBuf[i4 + 2] = lc;
-      if (dt === 0) continue;
-      const px = pos[i3], py = pos[i3 + 1], pz = pos[i3 + 2];
-      const k = kArr[i], c = cArr[i];
-      let ax = k * (tx - px) - c * vel[i3];
-      let ay = k * (ty - py) - c * vel[i3 + 1];
-      let az = k * (tz - pz) - c * vel[i3 + 2];
-      let prox = 0;
-      for (let j = 0; j < np; j++) {
-        const p = ptrWorld[j];
-        const dx = px - p.x, dy = py - p.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < R2) {
-          const d = Math.sqrt(d2) + 1e-4;
-          let w = 1 - d / R;
-          w = w * w * (3 - 2 * w);
-          const f = k * R * 1.05 * w * p.amt;
-          const ux = dx / d, uy = dy / d;
-          ax += ux * f - uy * f * 0.3;
-          ay += uy * f + ux * f * 0.3;
-          az += f * 0.5;
-          if (w * p.amt > prox) prox = w * p.amt;
-        }
-      }
-      for (let j = 0; j < nr; j++) {
-        const dx = px - rx[j], dy = py - ry[j];
-        const d = Math.sqrt(dx * dx + dy * dy) + 1e-4;
-        const q = (d - rrad[j]) / bandW;
-        if (q > -3 && q < 3) {
-          const band = Math.exp(-q * q) * ramp[j];
-          const f = k * R * 1.5 * band;
-          ax += (dx / d) * f;
-          ay += (dy / d) * f;
-          az += f * 0.4;
-          if (band * 0.7 > prox) prox = band * 0.7;
-        }
-      }
-      const vx = vel[i3] + ax * dt, vy = vel[i3 + 1] + ay * dt, vz = vel[i3 + 2] + az * dt;
-      vel[i3] = vx; vel[i3 + 1] = vy; vel[i3 + 2] = vz;
-      pos[i3] = px + vx * dt;
-      pos[i3 + 1] = py + vy * dt;
-      pos[i3 + 2] = pz + vz * dt;
-      lookBuf[i4 + 3] = prox;
-    }
-    this.posAttr.needsUpdate = true;
-    this.lookAttr.needsUpdate = true;
-    this.renderer.render(this.scene3, this.camera);
-  }
-
-  destroy() {
-    this.park();
-    this.renderer.dispose();
-    this.renderer.forceContextLoss();
-  }
-}
-
-/* --------------------------------------------------------------- module API */
-
-let field: Field | null = null;
+let main: Stage | null = null;
+let preview: Preview | null = null;
+let pool: Pool | null = null;
 let failed = false;
 
-/** Create the shared field (once). Returns false when WebGL is unavailable. */
-export function initField(): boolean {
-  if (field) return true;
-  if (failed || matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+const onScreen = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+};
+
+/* ------------------------------------------------------------------ the name, sampled from rendered text */
+
+function sampleName(stage: Stage, slot: HTMLElement): ReturnType<typeof customScene> | null {
+  const lines = [...document.querySelectorAll<HTMLElement>('.hero__line')];
+  const h1 = document.querySelector<HTMLElement>('.hero__name');
+  if (!lines.length || !h1) return null;
+  const sr = slot.getBoundingClientRect();
+  const cs = getComputedStyle(h1);
+  const family = cs.fontFamily;
+  const weight = cs.fontWeight;
+  const k = 0.5; // sampling resolution (canvas px per CSS px)
+  const cw = Math.ceil(sr.width * k), ch = Math.ceil(sr.height * k);
+  const cv = document.createElement('canvas');
+  cv.width = cw;
+  cv.height = ch;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'alphabetic';
+  const inside = lines.every((l) => {
+    const r = l.getBoundingClientRect();
+    return r.top >= sr.top && r.bottom <= sr.bottom + 4 && r.left >= sr.left - 4;
+  });
+  if (inside) {
+    // desktop: the particles form the name exactly where the heading will appear
+    for (const l of lines) {
+      const r = l.getBoundingClientRect();
+      const ls = getComputedStyle(l);
+      const size = parseFloat(ls.fontSize) * k;
+      ctx.font = `${weight} ${size}px ${family}`;
+      if ('letterSpacing' in ctx) (ctx as any).letterSpacing = `${(parseFloat(ls.letterSpacing) || 0) * k}px`;
+      const m = ctx.measureText(l.textContent ?? '');
+      const asc = m.fontBoundingBoxAscent ?? size * 0.9, desc = m.fontBoundingBoxDescent ?? size * 0.25;
+      const lh = (parseFloat(ls.lineHeight) || parseFloat(ls.fontSize)) * k;
+      ctx.fillText(l.textContent ?? '', (r.left - sr.left) * k, (r.top - sr.top) * k + (lh - (asc + desc)) / 2 + asc);
+    }
+  } else {
+    // phones: the name is set inside the field's band, above the heading
+    const words = lines.map((l) => l.textContent ?? '');
+    ctx.font = `${weight} 100px ${family}`;
+    const ls0 = parseFloat(cs.letterSpacing) / parseFloat(cs.fontSize) || -0.05;
+    if ('letterSpacing' in ctx) (ctx as any).letterSpacing = `${ls0 * 100}px`;
+    const widest = Math.max(...words.map((w) => ctx.measureText(w).width));
+    const size = Math.min((cw * 0.8 * 100) / widest, (ch * 0.8) / (words.length * 0.92));
+    ctx.font = `${weight} ${size}px ${family}`;
+    if ('letterSpacing' in ctx) (ctx as any).letterSpacing = `${ls0 * size}px`;
+    const block = words.length * size * 0.92;
+    words.forEach((w, i) => {
+      const x = (cw - ctx.measureText(w).width) / 2;
+      ctx.fillText(w, x, (ch - block) / 2 + (i + 0.8) * size * 0.92);
+    });
+  }
+  const img = ctx.getImageData(0, 0, cw, ch).data;
+  const cand: number[] = [];
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (img[(y * cw + x) * 4 + 3] > 120) cand.push(x, y);
+  if (cand.length < 40) return null;
+  const n = stage.n, home = new Float32Array(n * 3), m = cand.length / 2;
+  for (let i = 0; i < n; i++) {
+    const j = ((Math.random() * m) | 0) * 2;
+    const p = stage.homeAt(sr.left + (cand[j] + Math.random()) / k, sr.top + (cand[j + 1] + Math.random()) / k);
+    if (!p) continue;
+    home[i * 3] = p.x;
+    home[i * 3 + 1] = p.y;
+    home[i * 3 + 2] = (Math.random() - 0.5) * 0.05;
+  }
+  return customScene(home, n, inside ? 0.95 : 0.5);
+}
+
+/** First visit only: noise → the name → the landscape, about 1.5 s, never blocking anything. */
+function runIntro(slot: HTMLElement): boolean {
+  const root = document.documentElement;
+  if (!main || !root.classList.contains('intro') || root.classList.contains('intro-run')) return false;
+  // too late (the safety net already showed the page): skip the moment rather than redo the hero
+  if (performance.now() > 3300) return false;
+  main.mount(slot);
+  const name = sampleName(main, slot);
+  if (!name) return false;
   try {
-    field = new Field();
+    sessionStorage.setItem(INTRO_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+  root.classList.add('intro-run');
+  const m = main;
+  m.scatter();
+  // pull tight and calm onto the letters, hold a moment, then let go into the landscape
+  m.stiffness = 4;
+  m.damping = 1.5;
+  m.setScene(name, { morph: 0.4, stagger: 0.2, lift: 0.2 });
+  m.after(1.15, () => {
+    m.stiffness = 1.6;
+    m.damping = 1;
+    m.setScene('scene', { morph: 0.45, stagger: 0.25, lift: 0.7 });
+    root.classList.add('intro-reveal');
+  });
+  m.after(2.2, () => (m.stiffness = 1));
+  const ric = (cb: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 2000 }) : setTimeout(cb, 300));
+  m.after(2.4, () => ric(upgradeMain));
+  slot.classList.add('is-live');
+  main.draw();
+  wake();
+  return true;
+}
+
+/* ------------------------------------------------------------------ hover preview (fine pointers) */
+
+class Preview {
+  readonly el: HTMLDivElement;
+  private slot: HTMLDivElement;
+  private _stage: Stage | null = null;
+  project: string | null = null;
+  private shown = false;
+  private x = 0;
+  private y = 0;
+  private tx = 0;
+  private ty = 0;
+  private raf = 0;
+  private last = 0;
+  private hideTimer = 0;
+  private holdUntil = 0;
+  private over: HTMLElement | null = null;
+
+  constructor() {
+    this.el = document.createElement('div');
+    this.el.className = 'preview';
+    this.el.setAttribute('aria-hidden', 'true');
+    this.el.hidden = true;
+    this.slot = document.createElement('div');
+    this.slot.className = 'preview__slot';
+    this.slot.dataset.mode = 'preview';
+    this.el.appendChild(this.slot);
+    document.addEventListener('pointerover', this.onOver, { passive: true });
+    window.addEventListener('pointermove', this.onMove, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => this.hide(), { passive: true });
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+  }
+
+  mount() {
+    if (!this.el.isConnected) document.body.appendChild(this.el);
+  }
+
+  /** created on first use, once WebGL is warm */
+  get stage(): Stage | null {
+    if (!this._stage && glReady()) {
+      try {
+        this._stage = new Stage(N_PREVIEW);
+      } catch {
+        /* no preview */
+      }
+    }
+    return this._stage;
+  }
+
+  private size() {
+    return { w: this.el.offsetWidth || 300, h: this.el.offsetHeight || 225 };
+  }
+  /** cursor at the preview's left edge, vertically centred; flips left near the right edge */
+  private target(cx: number, cy: number) {
+    const { w, h } = this.size();
+    const gap = 28;
+    let x = cx + gap;
+    if (x + w > window.innerWidth - 16) x = cx - gap - w;
+    this.tx = Math.max(16, x);
+    this.ty = Math.min(window.innerHeight - h - 16, Math.max(16, cy - h / 2));
+  }
+
+  private onOver = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
+    const row = (e.target as Element | null)?.closest?.<HTMLElement>('.entry[data-project]') ?? null;
+    if (row === this.over) return;
+    this.over = row;
+    if (row) this.show(row, e.clientX, e.clientY);
+    else if (performance.now() > this.holdUntil) this.hide();
+  };
+  private onMove = (e: PointerEvent) => {
+    if (e.pointerType === 'touch' || !this.shown) return;
+    this.target(e.clientX, e.clientY);
+    this.loop();
+  };
+  private onScroll = () => {
+    if (!this.shown) return;
+    const p = input.pointers.find((q) => q.id === 'mouse');
+    const under = p ? document.elementFromPoint(p.x, p.y)?.closest<HTMLElement>('.entry[data-project]') : null;
+    if (under !== this.over) {
+      this.over = under ?? null;
+      if (under && p) this.show(under, p.x, p.y);
+      else this.hide();
+    }
+  };
+
+  show(row: HTMLElement, cx: number, cy: number, instant = false) {
+    const stage = this.stage;
+    if (!stage) return;
+    const id = row.dataset.project ?? null;
+    const scene = (isSceneName(row.dataset.scene) ? row.dataset.scene : 'leaf') as SceneName;
+    clearTimeout(this.hideTimer);
+    this.mount();
+    this.target(cx, cy);
+    if (!this.shown) {
+      this.el.hidden = false;
+      this.x = this.tx;
+      this.y = this.ty;
+      this.place();
+      stage.attach(this.slot, { scene, snap: true });
+      this.el.classList.toggle('is-instant', instant);
+      void this.el.offsetWidth;
+      this.el.classList.add('is-shown');
+      this.shown = true;
+    } else if (id !== this.project) {
+      stage.setScene(scene, { morph: 0.7, stagger: 0.25, lift: 0.5 });
+    }
+    this.project = id;
+    this.loop();
+  }
+
+  hide() {
+    if (!this.shown) return;
+    this.shown = false;
+    this.over = null;
+    this.el.classList.remove('is-shown', 'is-instant');
+    this.hideTimer = window.setTimeout(() => {
+      if (!this.shown) {
+        this.el.hidden = true;
+        this.project = null;
+      }
+    }, 320);
+  }
+
+  /** after a page swap the old element is gone from the DOM; start clean */
+  reset() {
+    clearTimeout(this.hideTimer);
+    this.shown = false;
+    this.over = null;
+    this.project = null;
+    this.el.hidden = true;
+    this.el.classList.remove('is-shown', 'is-instant');
+    this.el.style.viewTransitionName = '';
+    this.el.removeAttribute('data-vt');
+  }
+
+  /** Coming back from a project page: appear on its row so the field can shrink into it. */
+  at(row: HTMLElement): HTMLElement | null {
+    if (!this.stage) return null;
+    const r = row.getBoundingClientRect();
+    const title = row.querySelector('.entry__title')?.getBoundingClientRect();
+    const cx = Math.min(r.right - 40, (title ? title.right : r.left + r.width * 0.4) + 8);
+    this.show(row, cx, r.top + r.height / 2, true);
+    this.over = row;
+    this.holdUntil = performance.now() + 1400;
+    window.setTimeout(() => {
+      const p = input.pointers.find((q) => q.id === 'mouse');
+      const under = p ? document.elementFromPoint(p.x, p.y)?.closest('.entry[data-project]') : null;
+      if (!under) this.hide();
+    }, 1400);
+    return this.el;
+  }
+
+  private place() {
+    this.el.style.transform = `translate3d(${this.x.toFixed(1)}px, ${this.y.toFixed(1)}px, 0)`;
+  }
+  private loop() {
+    if (this.raf) return;
+    this.last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - this.last) / 1000);
+      this.last = now;
+      const a = 1 - Math.exp(-dt * 9);
+      this.x += (this.tx - this.x) * a;
+      this.y += (this.ty - this.y) * a;
+      this.place();
+      if (Math.abs(this.tx - this.x) + Math.abs(this.ty - this.y) > 0.3) this.raf = requestAnimationFrame(tick);
+      else this.raf = 0;
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+}
+
+/* ------------------------------------------------------------------ pool of small stages */
+
+interface Client {
+  el: HTMLElement;
+  near: boolean;
+  menu: boolean;
+}
+
+class Pool {
+  private stages: Stage[] = [];
+  private clients: Client[] = [];
+  private menuOpen = false;
+  private queued = 0;
+  private io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const c = this.clients.find((q) => q.el === e.target);
+        if (c) c.near = e.isIntersecting;
+      }
+      this.update();
+    },
+    { rootMargin: '30% 0px 30% 0px' },
+  );
+
+  constructor() {
+    window.addEventListener('scroll', () => this.queue(), { passive: true });
+  }
+
+  register() {
+    this.release();
+    this.clients = [...document.querySelectorAll<HTMLElement>('[data-spec-slot]')]
+      .filter((el) => el.getClientRects().length > 0)
+      .map((el) => ({ el, near: false, menu: el.hasAttribute('data-menu-field') }));
+    this.clients.forEach((c) => this.io.observe(c.el));
+  }
+
+  release() {
+    this.io.disconnect();
+    this.stages.forEach((s) => s.park());
+    this.clients = [];
+  }
+
+  setMenu(open: boolean) {
+    this.menuOpen = open;
+    this.update();
+  }
+
+  queue() {
+    if (this.queued) return;
+    this.queued = requestAnimationFrame(() => {
+      this.queued = 0;
+      this.update();
+    });
+  }
+
+  private update() {
+    const mid = window.innerHeight / 2;
+    const dist = (c: Client) => {
+      const r = c.el.getBoundingClientRect();
+      return Math.abs(r.top + r.height / 2 - mid);
+    };
+    const chosen = this.clients
+      .filter((c) => (c.menu ? this.menuOpen : c.near && !this.menuOpen))
+      .sort((a, b) => Number(b.menu) - Number(a.menu) || dist(a) - dist(b))
+      .slice(0, POOL);
+    for (const s of this.stages) if (s.slot && !chosen.some((c) => c.el === s.slot)) s.park();
+    for (const c of chosen) {
+      if (this.stages.some((s) => s.slot === c.el)) continue;
+      let s = this.stages.find((q) => !q.slot);
+      if (!s && this.stages.length < POOL && glReady()) {
+        try {
+          s = new Stage(N_SPEC);
+          this.stages.push(s);
+        } catch {
+          return;
+        }
+      }
+      if (s) s.attach(c.el, clientOptions(c.el));
+    }
+  }
+}
+
+/** How a slot wants its stage: specimens appear exactly as their still; ambient fields gather in. */
+function clientOptions(el: HTMLElement): AttachOptions {
+  const scene = (isSceneName(el.dataset.scene) ? el.dataset.scene : 'leaf') as SceneName;
+  const opacity = el.dataset.opacity ? parseFloat(el.dataset.opacity) : 1;
+  const enter = el.dataset.enter;
+  if (enter === 'gather') return { scene, fromNoise: true, opacity, timing: { morph: 2.4, stagger: 1.6, lift: 0.4 } };
+  if (enter === 'flow') return { scene, fromNoise: true, opacity, timing: { morph: 1.1, stagger: 0.5, lift: 0.3 } };
+  return { scene, snap: true, opacity };
+}
+
+/* ------------------------------------------------------------------ module API */
+
+/** WebGL contexts may be created (the main field has left its 2D start). */
+function glReady() {
+  return !!main && !main.lite;
+}
+
+function watchLoss(canvas: HTMLCanvasElement) {
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    for (const s of [...allStages()]) s.destroy();
+    document.documentElement.classList.remove('field-live');
+    main = null;
+    preview = null;
+    pool = null;
+    failed = true;
+  });
+}
+
+/** Leave the 2D start: from now on every field draws with WebGL. */
+function upgradeMain() {
+  if (!main?.lite) return;
+  if (!main.upgrade()) {
+    failed = true;
+    return;
+  }
+  watchLoss(main.canvas);
+  pool?.queue();
+}
+
+/** Create the fields (once). Returns false when WebGL is unavailable. */
+export function initField(): boolean {
+  if (main) return true;
+  if (failed || matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  // the first visit starts on a 2D canvas (it never stalls the page) and moves to WebGL when idle
+  const lite = document.documentElement.classList.contains('intro');
+  try {
+    main = new Stage(N_MAIN, lite);
   } catch {
     failed = true;
     return false;
   }
-  const f = field;
-  f.canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    f.destroy();
-    document.documentElement.classList.remove('field-live');
-    field = null;
-    failed = true;
-  });
+  if (!lite) watchLoss(main.canvas);
+  try {
+    pool = new Pool();
+    if (fine()) preview = new Preview();
+  } catch {
+    /* the main field still works */
+  }
 
   const opts: AddEventListenerOptions = { passive: true };
+  const tapAll = (x: number, y: number) => {
+    for (const s of allStages()) s.tap(x, y);
+  };
   window.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
-    upsert('mouse', e.clientX, e.clientY);
-    field?.start();
+    upsertPointer('mouse', e.clientX, e.clientY);
+    wake();
   }, opts);
   window.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch') field?.tap(e.clientX, e.clientY);
+    if (e.pointerType !== 'touch') tapAll(e.clientX, e.clientY);
   }, opts);
-  document.documentElement.addEventListener('pointerleave', () => remove('mouse'), opts);
+  document.documentElement.addEventListener('pointerleave', () => removePointer('mouse'), opts);
   window.addEventListener('touchstart', (e) => {
     for (const t of Array.from(e.changedTouches)) {
-      upsert('t' + t.identifier, t.clientX, t.clientY);
-      field?.tap(t.clientX, t.clientY);
+      upsertPointer('t' + t.identifier, t.clientX, t.clientY);
+      tapAll(t.clientX, t.clientY);
     }
-    field?.start();
+    wake();
   }, opts);
   window.addEventListener('touchmove', (e) => {
-    for (const t of Array.from(e.touches)) upsert('t' + t.identifier, t.clientX, t.clientY);
-    field?.start();
+    for (const t of Array.from(e.touches)) upsertPointer('t' + t.identifier, t.clientX, t.clientY);
+    wake();
   }, opts);
   const end = (e: TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) remove('t' + t.identifier);
+    for (const t of Array.from(e.changedTouches)) removePointer('t' + t.identifier);
   };
   window.addEventListener('touchend', end, opts);
   window.addEventListener('touchcancel', end, opts);
-  document.addEventListener('visibilitychange', () => (document.hidden ? field?.stop() : field?.start()));
-  new MutationObserver(() => field?.applyTheme()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => field?.applyTheme());
+  document.addEventListener('visibilitychange', () => wake());
+  const retheme = () => {
+    for (const s of allStages()) s.applyTheme();
+  };
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+  window.setTimeout(() => warmScenes(preview ? [N_MAIN, N_SPEC, N_PREVIEW] : [N_MAIN, N_SPEC]), 6000);
 
   (window as any).__stage = {
-    get scene() { return field?.sceneName; },
-    get morphing() { return field?.morphing; },
-    live: () => (field && field.slot ? [{ scene: field.sceneName, n: field.n }] : []),
-    resetStats: () => field && Object.assign(field.stats, { frames: 0, sumMs: 0, maxMs: 0, recent: [], dts: [] }),
+    get scene() {
+      return main?.scene;
+    },
+    get morphing() {
+      return main?.morphing;
+    },
+    get disperse() {
+      return main?.disperse;
+    },
+    get t() {
+      return main?.t;
+    },
+    get lite() {
+      return main?.lite;
+    },
+    get preview() {
+      return preview ? { shown: !preview.el.hidden, project: preview.project, scene: preview.stage?.scene ?? null } : null;
+    },
+    live: () => [...allStages()].filter((s) => s.slot).map((s) => ({ scene: s.scene, n: s.n, mode: s.mode, visible: s.visible })),
+    resetStats: () => Object.assign(stats, { frames: 0, sumMs: 0, maxMs: 0, recent: [], dts: [] }),
     summary: () => {
-      if (!field) return null;
-      const s = field.stats;
-      const r = [...s.recent].sort((a, b) => a - b);
-      const d = [...s.dts].sort((a, b) => a - b);
+      const r = [...stats.recent].sort((a, b) => a - b);
+      const d = [...stats.dts].sort((a, b) => a - b);
       return {
-        frames: s.frames,
-        avgMs: s.sumMs / Math.max(1, s.frames),
+        frames: stats.frames,
+        avgMs: stats.sumMs / Math.max(1, stats.frames),
         p95Ms: r[Math.floor(r.length * 0.95)] ?? 0,
-        maxMs: s.maxMs,
+        maxMs: stats.maxMs,
+        frameP50: d[Math.floor(d.length * 0.5)] ?? 0,
         frameP95: d[Math.floor(d.length * 0.95)] ?? 0,
-        over33: s.dts.filter((x) => x > 33.4).length,
-        attachMs: s.attachMs,
+        over33: stats.dts.filter((x) => x > 33.4).length,
+        attachMs: stats.attachMs,
       };
     },
   };
   return true;
 }
 
-/** Put the field into the current page's slot (or park it if the page has none). */
-export function attachField(): void {
-  if (!field) return;
+/**
+ * Put the main field into the current page's slot (or park it). Synchronous: it runs during the
+ * page swap so the new page's view-transition snapshot already shows the field.
+ */
+export function attachField(o: { snap?: boolean } = {}): void {
+  if (!main) return;
   const t0 = performance.now();
-  field.attach(document.querySelector<HTMLElement>('[data-field-slot]'));
-  field.stats.attachMs = performance.now() - t0;
-  document.documentElement.classList.toggle('field-live', !!field.slot);
+  preview?.reset();
+  preview?.mount();
+  // a navigation before the 2D start has moved to WebGL: move now
+  if (main.lite && main.slot) upgradeMain();
+  const slot = document.querySelector<HTMLElement>('[data-field-slot]');
+  if (!main) return;
+  if (!slot) main.park();
+  else if (!runIntro(slot)) {
+    const first = !main.slot && main.scene === null;
+    main.attach(slot, first ? { fromNoise: true } : { snap: o.snap || !onScreen(slot) });
+  }
+  stats.attachMs = performance.now() - t0;
+  document.documentElement.classList.toggle('field-live', !!main.slot);
 }
 
-/**
- * Before a navigation: the slot glides to its new position only if it is actually on screen,
- * otherwise it would fly in from far above.
- */
-export function prepareLeave(): void {
-  const slot = document.querySelector<HTMLElement>('[data-field-slot]');
-  if (!slot) return;
-  const r = slot.getBoundingClientRect();
-  const onScreen = r.bottom > 0 && r.top < window.innerHeight;
-  if (!onScreen) slot.style.viewTransitionName = 'none';
+/** After a page has loaded: lend the pool to its specimen slots. */
+export function pageReady(): void {
+  pool?.register();
 }
+/** Before the page is swapped out. */
+export function pageLeave(): void {
+  pool?.release();
+}
+export function menuToggled(open: boolean): void {
+  pool?.setMenu(open);
+}
+
+/* continuity hooks (see ../continuity.ts) */
+export function previewFor(project: string): HTMLElement | null {
+  return preview && !preview.el.hidden && preview.project === project ? preview.el : null;
+}
+export function previewAt(row: HTMLElement): HTMLElement | null {
+  return preview && fine() ? preview.at(row) : null;
+}
+

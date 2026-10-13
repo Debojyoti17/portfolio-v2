@@ -13,6 +13,8 @@ export function applyStoredTheme(): void {
   const d = document.documentElement;
   d.classList.add('js');
   if (!reduced()) d.classList.add('motion');
+  // the name assembles only when the home page is the first page of a visit
+  d.classList.remove('intro');
 }
 
 function effectiveTheme(): 'light' | 'dark' {
@@ -115,6 +117,7 @@ export function initUI(): Cleanup {
       inertTargets().forEach((el) => (el.inert = open));
       document.documentElement.style.overflow = open ? 'hidden' : '';
       (window as any).__lenis?.[open ? 'stop' : 'start']();
+      document.dispatchEvent(new CustomEvent('menu:toggle', { detail: open }));
       if (open) {
         nav?.classList.remove('nav--hidden');
         menu.querySelector<HTMLElement>('a')?.focus({ preventScroll: true });

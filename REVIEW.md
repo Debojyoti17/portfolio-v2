@@ -5,7 +5,184 @@ day-to-day instructions are in [README.md](README.md).
 
 ---
 
-## Review round 2: one coherent experience (this update)
+## Review round 3: signature moments (this update)
+
+**Theme:** keep the structure and content, stay a professional and scannable portfolio, and add a few
+strong moments where 3D and motion feel intentional and continuous. It is not a 3D world: every moment
+lives inside an existing block.
+
+### 0. Bug first: in-page anchors (pushed on its own, `5378723`)
+**Symptom:** the menu's Contact link could land at the top of the page.
+
+**Cause:** Astro jumped to `#contact` natively, then Lenis smooth-scrolled from a stale position. It also
+measured a target that still carried its 16 px entrance offset. Results varied from run to run, which is
+why it failed on some pages and not others.
+
+**Fix:** one anchor handler for every page (`src/scripts/ui.ts`). It:
+* closes the menu;
+* scrolls to the target's layout position minus the header offset;
+* updates the hash and moves focus to the target.
+
+Links to an anchor on another page navigate first, then settle under the header. Direct loads with a hash
+work too.
+
+**Test:** `scripts/anchors.mjs`, 39 checks:
+* Work, About and Contact from Home, Work, About and a project page, on phone and desktop, with the
+  navigation happening inside one session (across view transitions);
+* a cross-page anchor;
+* a direct load with a hash;
+* Back to top.
+
+### 1. Hero: the name assembles (first visit)
+On the first visit to the home page in a session, the particles start as drifting noise and assemble into
+the name, then settle into the landscape. The name is sampled from the rendered heading, with the same
+font, size and letter spacing.
+* **Desktop:** the particle name forms exactly where the heading sits. The heading waits hidden, then rises
+  in as the particles leave.
+* **Phones:** the name forms inside the field band above the heading. The heading stays visible, which
+  keeps the page's main content paint fast.
+* **Timing:** about 1.5–2 s, and nothing waits on it.
+* **Skipped** on repeat visits (sessionStorage), under reduced motion and without WebGL. A safety net shows
+  everything after 3.6 s if the field never starts.
+
+Scrolling out of the hero disperses the particles. Touch and pointer interaction are unchanged.
+
+### 2. Project specimens
+* **Mouse / trackpad:** hovering a project row shows that project's form in a floating preview. It follows
+  the cursor with easing and morphs from one project to the next. One shared canvas.
+* **Touch:** each row shows its form inline above the text, compact and touchable (the existing
+  behaviours). It is live only when near the screen, and never more than two at once.
+* **Rows:** the whole row opens the project, and each row shows Code / Paper / Demo when those links are
+  set.
+* **Work page:** uses the same rows (plus topics) instead of the static stills.
+
+### 3. Continuity between pages
+* **Opening a project:** the specimen you were looking at (the preview, an inline specimen, or the
+  next-project specimen) grows into the large field at the top of the project page. The persistent field
+  starts in that same form, so it reads as one object growing, not a reload. Back reverses it into the row;
+  on desktop the preview reappears on the row.
+* **Next project:** every project page ends with one large link (title, type line, live specimen) that
+  carries the same transition. It replaces the previous / next pager.
+* **Motion grammar:** written down in DESIGN.md §7. One direction (rise), one easing, two durations (0.9 s
+  for content, 0.3 s for responses), one hover (an underline draws in).
+
+### 4. Menu
+* each item has a one-line description ("Research and projects", "Background, education and skills",
+  "Email and GitHub");
+* items rise in turn;
+* a faint particle horizon fills the empty space;
+* the menu closes on selection, and the email stays at the bottom.
+
+### 5. Cursor (fine pointers only)
+* a small ring follows with slight easing;
+* it grows and says View over projects, Drag over fields, and Open over links that leave the site;
+* it is hidden on touch and under reduced motion;
+* focus outlines are untouched, and the native cursor is hidden only where the ring carries a label.
+
+### 6. Contact ending
+* heading "Contact";
+* the email as one large mailto link with a subtle magnetic pull (up to 14 px);
+* GitHub;
+* a quiet particle cluster that gathers behind the block as you arrive.
+
+No copy button, no tagline, and the footer lists are unchanged.
+
+### Under the hood (why it stays fast)
+* **Three.js removed.** A ~150-line WebGL renderer replaces it, and the field's script went from 542 KB to
+  40 KB.
+* **2D start.** A freshly started browser can block for 112–630 ms creating its first WebGL context
+  (measured), which knocked Lighthouse home down to 67. So the first visit draws the intro on a 2D canvas
+  (pixels written directly) and moves the same particles to WebGL when the browser is idle. Home is back to
+  98.
+* **Context limit:** at most 4 WebGL contexts, 3 on phones: the persistent field, the preview (mouse only)
+  and a pool of two.
+* **Cursor ring:** draws in theme colours instead of `mix-blend-mode`. Blending doubled the p95 frame time
+  while the cursor moved.
+
+### Checks after this round
+**Frame timing** (`node scripts/perf-morph.mjs`): Playwright with Chromium and software WebGL, 4× CPU
+throttle.
+
+Phone (Pixel 5 emulation, touch):
+
+| Moment | p50 | p95 | Frames > 50 ms | Field JS per frame |
+| --- | --- | --- | --- | --- |
+| First visit: name assembles → landscape | 16.7 ms | 33.4 ms | 7 of 192 (page load) | 6.7 ms |
+| Drag across the hero | 16.7 ms | 33.3 ms | 0 | 2.9 ms |
+| Vertical drag on the hero (scrolls the page) | 16.7 ms | 33.4 ms | 0 | 2.7 ms |
+| Scroll through the specimens (pool mounts) | 16.7 ms | 49.9 ms | 6 | 3.7 ms |
+| Touch a specimen | 16.7 ms | 16.7 ms | 0 | 2.1 ms |
+| Open a project from its specimen | 16.7 ms | 50.0 ms | 4 | 2.6 ms |
+| Next project | 16.7 ms | 50.0 ms | 4 | 3.4 ms |
+| Back (shrinks into the row) | 16.7 ms | 33.4 ms | 1 | 2.5 ms |
+| Open the menu | 16.7 ms | 33.4 ms | 0 | 3.7 ms |
+| Menu → Contact (scroll, field gathers) | 16.7 ms | 33.4 ms | 1 | 3.0 ms |
+
+Desktop (1440 × 900, mouse):
+
+| Moment | p50 | p95 | Field JS per frame |
+| --- | --- | --- | --- |
+| Hover preview across rows | 33.3 ms | 50.1 ms | 3.8 ms |
+| Open from the preview | 50.0 ms | 133 ms | 6.8 ms |
+| Back | 33.3 ms | 100 ms | 4.8 ms |
+
+* **Phone:** each navigation has one long task of 53–200 ms (Astro swapping the page), as in round 2.
+* **Desktop:** the 33 ms floor is this sandbox rasterising a 1440 px page in software (it is 33 ms with no
+  field at all). The navigation long tasks (≈ 250 ms) are the same page swap at desktop size.
+
+**Lighthouse** (mobile preset):
+
+| Page | Performance | Accessibility | Best practices | SEO |
+| --- | --- | --- | --- | --- |
+| Home | 98 | 100 | 100 | 100 |
+| Work | 99 | 100 | 100 | 100 |
+| LeafScope | 100 | 100 | 100 | 100 |
+| Ghosts in the Splat | 100 | 100 | 100 | 100 |
+| About | 100 | 100 | 100 | 100 |
+
+* Home: LCP 1.8 s, TBT 150 ms. The other pages: LCP 1.7–1.8 s, TBT 0 ms.
+* CLS ≤ 0.001 everywhere.
+
+**Other checks:**
+* `astro check` reports 0 errors.
+* The link checker found 0 broken links.
+* `scripts/interact.mjs`: 40 browser checks pass. New ones cover the preview and View label, Drag over
+  fields, the specimen → project hand-over (same canvas, shared element, starts in the specimen's form),
+  the next-project link, inline specimens on touch (at most two live), menu descriptions, backdrop and
+  close-on-select, no ring on touch, and reduced motion (no intro, no ring, no preview).
+* `scripts/anchors.mjs`: 39 checks pass.
+
+**Screenshots** (two critique rounds): Home, Work, two project pages, About and 404 at 390 px and 1440 px,
+light and dark, plus the interactive states (preview, specimens, menu, contact, next project). Round 1
+also produced:
+* frame strips of the intro, timed by the field's own clock;
+* slow-motion captures of the shared-element transitions, both ways, on phone and desktop.
+
+Round 1 fixed:
+* the name never fully formed (the springs lagged the morph): stiffer, better-damped springs plus a short
+  hold;
+* the phone heading flickered at the hand-off;
+* the next-project title underline spanned the column;
+* the menu horizon overlapped the last item;
+* the contact cluster sat on the email on phones;
+* the next-project box touched the footer line.
+
+Round 2 found nothing further beyond aligning the next-project underline with the email's.
+
+### Limitations of this round
+* **No real device:** everything is measured in emulation with software WebGL. On a phone with a GPU the
+  numbers should be the same or better, but please check the first visit on your phone. The intro starts
+  about a second after the page appears, once the browser is idle.
+* **The desktop preview covers part of a row's summary while you hover it** (it sits beside the cursor).
+  Moving off the row hides it.
+* **Menu timing:** if the menu is opened in the first two or three seconds of a first visit, its particle
+  backdrop appears a moment later, when the field moves from its 2D start to WebGL.
+* **Back on desktop:** the preview reappears on the row only if that row is on screen after the browser
+  restores the scroll position. Otherwise the field fades.
+
+---
+
+## Review round 2: one coherent experience
 
 **Theme:** the site should feel like one intentional interactive experience, not a collection of separate
 ideas. The guiding rule was to remove more than to add.

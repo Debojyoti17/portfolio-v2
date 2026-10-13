@@ -38,6 +38,7 @@ const fullTitle = title ? `${title} — ${siteConfig.name}` : `${siteConfig.name
 const canonical = absolute(Astro.url.pathname.replace(import.meta.env.BASE_URL, '/'), Astro.site);
 const ogUrl = absolute(ogImage, Astro.site);
 const robots = __NOINDEX__ || noindex ? 'noindex, nofollow' : 'index, follow';
+const home = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <!doctype html>
@@ -73,8 +74,9 @@ const robots = __NOINDEX__ || noindex ? 'noindex, nofollow' : 'index, follow';
 
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 
-    <!-- Theme + capability flags before first paint (no flash). -->
-    <script is:inline>
+    <!-- Theme + capability flags before first paint (no flash). `intro`: first visit to the home
+         page in this session, so the particles assemble the name (see stage/stage.ts). -->
+    <script is:inline define:vars={{ home }}>
       (function () {
         var d = document.documentElement;
         try {
@@ -82,7 +84,12 @@ const robots = __NOINDEX__ || noindex ? 'noindex, nofollow' : 'index, follow';
           if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
         } catch (e) {}
         d.classList.add('js');
-        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) d.classList.add('motion');
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          d.classList.add('motion');
+          try {
+            if (location.pathname === home && !sessionStorage.getItem('dbm-intro') && 'WebGLRenderingContext' in window) d.classList.add('intro');
+          } catch (e) {}
+        }
       })();
     </script>
     <ClientRouter />

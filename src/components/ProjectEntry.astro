@@ -1,7 +1,8 @@
 ---
 /**
- * One project inside a research area. Used on the home page (compact) and on the Work page
- * (with a still of the project's field that links to the project page).
+ * One project inside a research area (home and /work/). The whole row opens the project.
+ * Its specimen (the project's particle form) appears as a floating preview that follows the cursor
+ * on fine pointers, and inline above the text on touch screens, where it is live and touchable.
  */
 import { href } from '../lib/url';
 import { projectVisual, projectLine, type Project } from '../lib/content';
@@ -12,31 +13,33 @@ import ProjectLinks from './ProjectLinks.astro';
 
 interface Props {
   project: Project;
-  still?: boolean;
+  /** show topics (Work page) */
+  detailed?: boolean;
   /** heading level of the project title */
   level?: 3 | 4;
 }
-const { project, still = false, level = 4 } = Astro.props;
+const { project, detailed = false, level = 4 } = Astro.props;
 const T = level === 3 ? 'h3' : 'h4';
 const d = project.data;
 const url = href(`/work/${project.id}/`);
+const visual = projectVisual(project);
 ---
 
-<article class={`entry${still ? ' entry--still' : ''}`} data-card data-tags={d.tags.join('|')} data-type={d.type} data-stage-label={d.stage ?? ''} data-reveal>
-  {still && (
-    <a class="entry__still" href={url} tabindex="-1" aria-hidden="true">
-      {d.cover ? (
-        <Image src={d.cover} alt="" widths={[400, 800]} sizes="(min-width: 900px) 22vw, 100vw" class="entry__img" loading="lazy" />
-      ) : (
-        <StaticField scene={projectVisual(project)} count={800} class="entry__field" semanticRedOnly />
-      )}
-    </a>
+<article class="entry" data-card data-project={project.id} data-scene={visual} data-tags={d.tags.join('|')} data-type={d.type} data-stage-label={d.stage ?? ''} data-reveal>
+  {d.cover ? (
+    <div class="entry__spec entry__spec--img" aria-hidden="true">
+      <Image src={d.cover} alt="" widths={[400, 800]} sizes="100vw" class="entry__img" loading="lazy" />
+    </div>
+  ) : (
+    <div class="entry__spec" data-spec-slot data-scene={visual} data-mode="spec" aria-hidden="true">
+      <StaticField scene={visual} count={600} class="spec__static" semanticRedOnly />
+    </div>
   )}
   <div class="entry__body">
     <p class="entry__line"><ProjectLine line={projectLine(project)} /></p>
-    <T class="entry__title"><a class="link entry__link" href={url}>{d.title}</a></T>
+    <T class="entry__title"><a class="link entry__link" href={url} data-cursor="View">{d.title}</a></T>
     <p class="entry__sum">{d.summary}</p>
-    {still && d.tags.length > 0 && <p class="entry__tags">{d.tags.join(' · ')}</p>}
+    {detailed && d.tags.length > 0 && <p class="entry__tags">{d.tags.join(' · ')}</p>}
     <ProjectLinks project={project} />
   </div>
 </article>

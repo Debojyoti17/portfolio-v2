@@ -8,6 +8,8 @@
 export interface NavItem {
   label: string;
   href: string;
+  /** One line under the label in the mobile menu. */
+  description?: string;
   /** Show only when this feature flag is on (and it has content). */
   feature?: keyof typeof features;
 }
@@ -61,9 +63,9 @@ export const siteConfig = {
 
   /** Header navigation. Items with `feature` appear only when that module is on and non-empty. */
   nav: [
-    { label: 'Work', href: '/work/' },
-    { label: 'About', href: '/about/' },
-    { label: 'Notes', href: '/notes/', feature: 'notes' },
+    { label: 'Work', href: '/work/', description: 'Research and projects' },
+    { label: 'About', href: '/about/', description: 'Background, education and skills' },
+    { label: 'Notes', href: '/notes/', description: 'Writing', feature: 'notes' },
   ] as NavItem[],
 
   /**

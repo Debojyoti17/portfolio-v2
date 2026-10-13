@@ -9,6 +9,7 @@ import Field from '../Field.astro';
 import ProjectLinks from '../ProjectLinks.astro';
 import ProjectLine from '../ProjectLine.astro';
 import Icon from '../Icon.astro';
+import StaticField from '../StaticField.astro';
 
 interface Props {
   project: Project;
@@ -19,7 +20,6 @@ const { project, projects, index } = Astro.props;
 const { Content } = await render(project);
 const d = project.data;
 const visual = projectVisual(project);
-const prev = projects[(index - 1 + projects.length) % projects.length];
 const next = projects[(index + 1) % projects.length];
 const facts = d.facts ?? [];
 ---
@@ -67,14 +67,16 @@ const facts = d.facts ?? [];
     </div>
 
     {projects.length > 1 && (
-      <nav class="container project__pager" aria-label="More projects">
-        <a class="pager" href={href(`/work/${prev.id}/`)} rel="prev">
-          <span class="label"><Icon name="arrow_back" />Previous</span>
-          <span class="pager__title">{prev.data.title}</span>
-        </a>
-        <a class="pager pager--next" href={href(`/work/${next.id}/`)} rel="next">
-          <span class="label">Next<Icon name="arrow_forward" /></span>
-          <span class="pager__title">{next.data.title}</span>
+      <nav class="container project__next" aria-label="Next project" data-reveal>
+        <a class="next" href={href(`/work/${next.id}/`)} rel="next" data-project={next.id} data-cursor="View">
+          <span class="next__text">
+            <span class="label next__label">Next project<Icon name="arrow_forward" /></span>
+            <span class="next__title"><span class="next__title-text">{next.data.title}</span></span>
+            <span class="meta next__line">{projectLine(next)}</span>
+          </span>
+          <span class="next__spec" data-spec-slot data-scene={projectVisual(next)} data-mode="spec" aria-hidden="true">
+            <StaticField scene={projectVisual(next)} count={600} class="spec__static" semanticRedOnly />
+          </span>
         </a>
       </nav>
     )}

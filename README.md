@@ -1,8 +1,10 @@
 # Debojyoti Barai Mitul — portfolio
 
 A static site built with [Astro](https://astro.build), plain CSS, and a small amount of TypeScript.
-It has one interactive particle field (Three.js) that travels with you between pages, smooth scrolling,
-light and dark themes, and no analytics, cookies or third-party requests.
+It has an interactive particle field (a small WebGL renderer, no 3D library) that travels with you between
+pages: it assembles the name on a first visit, shows each project's form as you hover or scroll past it,
+and grows that form into the project page. Smooth scrolling, light and dark themes, and no analytics,
+cookies or third-party requests.
 
 Preview: <https://debojyoti17.github.io/portfolio-v2/>
 
@@ -24,7 +26,9 @@ npm run check      # type-check
 npm run links      # check every internal link in dist/
 npm run contrast   # check the colour tokens against WCAG AA
 node scripts/interact.mjs     # browser smoke tests (needs `npm run preview` running)
-node scripts/perf-morph.mjs   # phone emulation: frame timing while the field morphs between pages
+node scripts/anchors.mjs      # Work / About / Contact links from every page, phone and desktop
+node scripts/perf-morph.mjs   # frame timing of every moment, phone and desktop, 4x CPU throttle
+node scripts/lighthouse.mjs "" work/ about/   # build with NOINDEX=false first
 ```
 
 ## The one file you edit most: `site.config.ts`
@@ -35,6 +39,7 @@ focus lines, the navigation, **feature flags** and the **order of homepage secti
 * **Social link**: put the URL in `social` (for example `linkedin: 'https://…'`). Empty ones are never
   shown. It then appears in the contact section and footer automatically.
 * **Reorder or remove a homepage section**: edit `homeSections`. Delete a name to hide that section.
+* **Menu descriptions**: each `nav` item can have a `description`, shown under it in the phone menu.
 
 ## Add a project
 
@@ -48,8 +53,9 @@ focus lines, the navigation, **feature flags** and the **order of homepage secti
   in `interests` in `site.config.ts`. Projects without an area appear under "More work".
 * **`tags`**: at most two, from the controlled list at the top of `src/content.config.ts` (add a name there
   first when you need a new tag).
-* **`visual`** chooses the project's form in the site's particle field (shown on its page, and as a still
-  on the Work page): `leaf`, `ghost`, `graph`, `network` or `tree`. If omitted, one is picked from the file name.
+* **`visual`** chooses the project's form in the site's particle field (its specimen in the project lists,
+  and the large field on its page): `leaf`, `ghost`, `graph`, `network` or `tree`. If omitted, one is
+  picked from the file name.
 * The project line under each title is built from `type` and `stage`: "Research project · In progress".
 * Optional fields (`links.*`, `role`, `cover`, `facts`) show up only when you fill them in. `featured: true`
   puts the project on the home page; `order` sorts (lower first).
@@ -69,8 +75,8 @@ links:
 ```
 
 **Cover image:** put the file in `src/assets/projects/` and set
-`cover: ../../assets/projects/my-project.jpg` and `coverAlt: "describe it"`. On the Work page the cover
-replaces the still of the project's field.
+`cover: ../../assets/projects/my-project.jpg` and `coverAlt: "describe it"`. It appears on the project page,
+and on touch screens it replaces the project's inline specimen in the lists.
 
 **Research areas:** edit `interests` in `site.config.ts` (a title and one sentence each). Each area is a
 heading in "Research & projects" (home page and Work page) with its projects listed underneath.
@@ -171,8 +177,8 @@ src/sections/             homepage sections (one component each)
 src/components/           shared UI (Nav, Footer, Icon, …)
 src/pages/                routes (home, work, about, notes, 404, og images, robots)
 src/styles/               tokens.css (design tokens) + plain CSS
-src/scripts/              client code: ui, motion (Lenis + GSAP), stage (Three.js)
-src/scripts/stage/       the one persistent particle field (stage.ts), its scenes and what touching them does
+src/scripts/              client code: ui (theme, menu, anchors), motion (Lenis + entrances), cursor, continuity (page-to-page pairing)
+src/scripts/stage/       the particle fields: engine.ts (physics), gl.ts (renderers), stage.ts (which field goes where), scenes, behaviours
 src/assets/fonts, icons   self-hosted fonts and SVG icons, with licences
 public/                   cv.pdf, images/profile.jpg, favicon
 scripts/                  screenshots, Lighthouse, link and contrast checks
@@ -180,6 +186,6 @@ scripts/                  screenshots, Lighthouse, link and contrast checks
 
 ## Licences of what is bundled
 
-Astro (MIT), Three.js (MIT), Lenis (MIT), GSAP and ScrollTrigger (GSAP “Standard no-charge” licence),
+Astro (MIT), Lenis (MIT), the Simple Icons GitHub mark (CC0),
 Doto, Instrument Sans and IBM Plex Mono (SIL OFL 1.1), Material Symbols Sharp icons (Apache-2.0).
 Full texts for fonts and icons are in `src/assets/fonts/licenses/` and `src/assets/icons/`.

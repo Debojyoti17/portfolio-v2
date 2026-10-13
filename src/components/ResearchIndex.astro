@@ -1,8 +1,8 @@
 ---
 /**
  * "Research & projects": each research area is a heading with one sentence, and its projects sit
- * directly underneath. The same structure on the home page and on /work/ (where entries also show
- * a still of the project's field).
+ * directly underneath. The same structure on the home page and on /work/ (where entries also list
+ * their topics).
  */
 import { siteConfig } from '@site';
 import type { Project } from '../lib/content';
@@ -10,11 +10,11 @@ import ProjectEntry from './ProjectEntry.astro';
 
 interface Props {
   projects: Project[];
-  still?: boolean;
+  detailed?: boolean;
   /** heading level for the area titles */
   level?: 2 | 3;
 }
-const { projects, still = false, level = 3 } = Astro.props;
+const { projects, detailed = false, level = 3 } = Astro.props;
 const known = new Set(siteConfig.interests.map((i) => i.title));
 const groups = [
   ...siteConfig.interests.map((i) => ({ title: i.title, note: i.note, projects: projects.filter((p) => p.data.area === i.title) })),
@@ -23,7 +23,7 @@ const groups = [
 const H = level === 2 ? 'h2' : 'h3';
 ---
 
-<div class={`rindex${still ? ' rindex--still' : ''}`}>
+<div class="rindex">
   {groups.map((g) => (
     <section class="rgroup" aria-label={g.title}>
       <header class="rgroup__head" data-reveal>
@@ -31,7 +31,7 @@ const H = level === 2 ? 'h2' : 'h3';
         {g.note && <p class="rgroup__note">{g.note}</p>}
       </header>
       <div class="rgroup__list">
-        {g.projects.map((p) => <ProjectEntry project={p} still={still} level={level === 2 ? 3 : 4} />)}
+        {g.projects.map((p) => <ProjectEntry project={p} detailed={detailed} level={level === 2 ? 3 : 4} />)}
       </div>
     </section>
   ))}

@@ -33,6 +33,7 @@ Authority comes from precision and restraint, not decoration.
 
 * **Voice:** confident, precise, quiet, technical. Sentences are short and factual. No superlatives.
 * **Shape language:** right angles only. 1px rules. No ornaments (no registration marks, no decorative dots).
+  The only round shapes are the particles and the ring cursor that echoes their touch radius.
 * **Annotations (with restraint):** one quiet type · stage line per project, the coordinates and local time
   of Vellore in the footer. No index numbers anywhere. Only *true* values are shown (no fabricated metrics).
 * **Content honesty:** nothing is invented. Any figure shown is supplied by the owner.
@@ -100,25 +101,33 @@ faint on phones); small labels use Plex Mono.
 
 ## 7. Motion grammar (one system, applied everywhere)
 
-Defined after review round 2, when motion felt jumbled. Every rule below is implemented once in
-`src/styles/ui.css` / `src/scripts/motion.ts` and reused; `scripts/interact.mjs` checks it.
+Defined in review round 2, extended in round 3 for the new moments. Every rule is implemented once
+(`src/styles/ui.css`, `src/scripts/motion.ts`, `src/scripts/cursor.ts`, `src/scripts/stage/`) and
+`scripts/interact.mjs` checks the shared ones. **One direction (things rise into place), one easing
+(`cubic-bezier(.16,1,.3,1)`), two durations: 0.9s for content entering, 0.3s for responses to the hand.**
 
 | Element | The one behaviour | Timing |
 | --- | --- | --- |
-| **Entrance** (on load, on scroll, mobile menu items) | content rises 16px while fading in. Nothing wipes, slides sideways, scales or splits into words | 0.9s, `cubic-bezier(.16,1,.3,1)`, 70ms stagger within a group |
-| **Hover / focus** (every link, action, nav item, icon control, pager) | a 1px underline draws in from the left; arrows nudge 3px in their own direction. No fills, no colour changes, no shifts of the text | 0.3s, same easing |
+| **Entrance** (on load, on scroll, menu items, the name revealed after the intro) | content rises 16px while fading in. Nothing wipes, slides sideways, scales or splits into words | 0.9s, 70ms stagger within a group |
+| **Hover / focus** (every link, row, action, nav item, icon control, next-project link) | an underline draws in from the left (1px on text, 0.05em on display-size links); arrows nudge 3px in their own direction. A project row underlines its title. No fills, no colour changes, no text shifts | 0.3s |
 | **Press** | the label dims to 60% | 0.15s |
-| **Page transition** | the old page fades out, the new page fades in and its content rises with the entrance above | 0.25s out / 0.35s in |
-| **The field** | particles spring back to their form; a finger parts them, a tap ripples; between pages the field glides to its new place and flows into the new form | springs ≈ 0.3–0.6s settle; morph 1.1s per particle, staggered over 0.6s; glide 0.9s |
+| **Hover preview** (fine pointers) | rises 16px and fades in beside the cursor, follows it with easing, morphs from one project's form to the next, fades out | 0.3s in/out; follow ≈ 0.1s lag; morph 0.7s |
+| **Ring cursor** (fine pointers) | follows with slight easing; grows to name what a click does: View (projects), Drag (fields), Open (links that leave the site) | 0.3s grow; ≈ 0.05s lag |
+| **Magnetic email** | the one large link leans up to 14px toward a nearby cursor and springs back | eased, ≈ 0.1s |
+| **Page transition** | the page cross-fades; one element carries the name `field` and morphs into its counterpart: a specimen grows into the project's field, and shrinks back on Back | 0.25s out / 0.35s in; field group 0.9s |
+| **The field** | springs back to its form; a finger parts it, a tap ripples; between pages it flows into the new form | springs ≈ 0.3–0.6s; morph 1.1s per particle over a 0.6s stagger |
+| **Name assembly** (first visit, home) | noise → the name → the landscape | ≈ 1.5–2s, never blocks input |
+| **Scroll** | the hero's particles disperse as it leaves; the contact field gathers as you arrive | tied to scroll / 2.4s gather |
 
-* **Removed** because they had no job of their own: line-mask title reveals, word splitting, rule draws,
-  clip-path wipes, the scroll-scrubbed focus list, the scroll/section readout, blinking status lamp,
-  row hover fills and title shifts, button fills, image zooms, GSAP + ScrollTrigger (the entrance is now
-  an IntersectionObserver plus one CSS transition).
-* **Kept:** Lenis smooth wheel scrolling on desktop (native on touch), and the header that slides away
-  while you scroll down and returns when you scroll up (it frees the screen on phones).
-* **`prefers-reduced-motion`:** no smooth scroll, no entrances, no page transitions, no live field (its
-  static SVG render is shown instead). Content is simply there.
+* **Removed** (round 2) because they had no job of their own: line-mask title reveals, word splitting,
+  rule draws, clip-path wipes, the scroll-scrubbed focus list, the scroll readout, the blinking lamp, row
+  fills and title shifts, button fills, image zooms, GSAP + ScrollTrigger.
+* **Kept:** Lenis smooth wheel scrolling on desktop (native on touch), and the header that slides away while
+  you scroll down and returns when you scroll up.
+* **`prefers-reduced-motion`:** no smooth scroll, no entrances, no page transitions, no name assembly, no
+  cursor ring, no preview, no magnetic pull, no live fields (static SVG renders instead). Content is simply
+  there. Touch devices never get the ring, the preview or the magnetic pull.
+* **Shape:** the ring cursor is the one round UI shape: it echoes the field's circular touch radius.
 
 ## 8. The 3D signature element — three concepts
 
@@ -139,39 +148,59 @@ a whole page.
 **C. "Seismograph field".** A heightfield of points whose amplitude follows scroll velocity and cursor
 energy. Elegant and cheap, but abstract; it has no link to Gaussian splatting.
 
-**Decision: A**, simplified twice after testing on a real phone. Round 1: the field no longer travels down
-the page behind the text. Round 2: there is now **one** field for the whole site — a single persistent
-canvas that is carried across page transitions and takes the form of whatever page you are on.
+**Decision: A**, simplified twice after testing on a real phone, then given a few signature moments.
+Round 1: the field no longer travels down the page behind the text. Round 2: one persistent field for the
+whole site, carried across page transitions. Round 3: the moments below, still built on one engine.
 
-**Interaction model** (`src/scripts/stage/stage.ts`):
-* A small CPU spring-physics engine (a few thousand particles) writes positions into a GPU point cloud.
-  Each particle springs toward its home position (slightly under-damped, so things drift back softly
-  with a little overshoot). A finger or cursor pushes particles aside with a smooth falloff and a faint
-  swirl; a tap or click sends a ripple outward. Pointer position and strength are eased, so contact
-  never teleports.
-* **Touch never blocks scrolling.** Fingers are read through *passive* `touchstart/move/end` listeners
-  (touchmove keeps firing while the page scrolls, so the field keeps reacting), containers declare
-  `touch-action: pan-y`, and `overscroll-behavior-x: none` stops a sideways drag from triggering
-  browser history swipes. Mouse and pen use pointer events.
-* **One field, many slots.** Pages that show the field contain a slot (`[data-field-slot]`): the home hero,
-  each project page, the 404 page. On every Astro view transition the same canvas (one WebGL context) is
-  moved into the new page's slot before the new page is captured; its particles then flow from the form
-  they last held into the new page's form (per-particle staggered morph with a slight lift toward the
-  viewer). If the old slot was on screen, the slot itself glides to its new position (a shared
-  view-transition element); if not, the field fades in where it belongs. Pages without a slot (Work,
-  About) park it, and it remembers its form for the next page that needs it. The first appearance flows
-  in from uninitialised noise. Scenes are prebuilt in idle time so navigations do not build them.
-* The Work page shows a **still** of each project's form (rendered at build time from the same scene
-  data) that links to the project page, where the form comes alive — so there is never more than one
-  live field, and a still is never mistaken for an interactive one.
-* Budget: 10,000 particles on desktop, 5,000 on phones; DPR capped at 1.75 / 1.5; half frame-rate when
-  idle; paused off-screen and when the tab is hidden. Measured on an emulated phone with 4× CPU throttle:
-  ≈ 4 ms of JS per frame (budget 16.7 ms); attaching the field to a new page costs 1–18 ms.
-* Phones start the live field on first touch or scroll (or after 9 s); until then the identical
-  server-rendered SVG is shown. Reduced motion and missing WebGL keep the SVG.
+**Engine** (`src/scripts/stage/`): `engine.ts` (a `Stage`: canvas, point cloud, spring physics, morphs),
+`gl.ts` (renderers), `scenes.ts` / `behaviours.ts` (forms and what touching them does), `stage.ts` (which
+stages exist and where they go), `../continuity.ts` (view-transition pairing), `../cursor.ts`.
+* **No Three.js any more.** The stage only ever drew one point cloud with a custom shader, so a ~150-line
+  WebGL renderer replaces it: the field's script went from 542 KB to 40 KB, which is what lets the first
+  visit start at once on phones.
+* **2D start, then WebGL.** Creating the first WebGL context while the browser is still starting its GPU
+  process can block the page for hundreds of milliseconds (measured: 112–630 ms in a freshly started
+  browser, 8 ms a second later). So the first visit draws the name assembly on a 2D canvas (splats written
+  straight into pixels, same projection) and moves the same particles to WebGL when the browser is idle.
+* **A finger never blocks scrolling:** passive touch listeners, `touch-action: pan-y`,
+  `overscroll-behavior-x: none` (a sideways drag must not trigger history swipes).
+* **Physics:** each particle springs to its home (slightly under-damped); a finger or cursor parts the
+  particles with a smooth falloff and a faint swirl; a tap sends a ripple; each scene may add one behaviour.
 
-**Scenes** (`scenes.ts` builds them, `behaviours.ts` gives them meaning). One scene per project, live on its
-page and shown as a still on /work/:
+**Stages and where they live** (at most 4 WebGL contexts, 3 on phones, whatever the page holds):
+
+| Stage | Particles (desktop / phone) | Where |
+| --- | --- | --- |
+| main, persistent | 10,000 / 5,000 | home hero, project page, 404. Carried across page transitions and morphs into each page's form; parked on Work and About |
+| preview | 4,000 (fine pointers only) | the floating specimen beside the cursor over project rows |
+| pool of two | 3,000 / 2,200 | lent to whichever specimen slots are nearest the viewport: inline specimens on touch screens (never more than two live), the next-project specimen, the contact field, the menu backdrop |
+
+**The moments:**
+1. **Name assembly** (first visit to home in a session, `sessionStorage`): particles start as drifting
+   noise, assemble into the name (sampled from the rendered heading: on desktop exactly where the heading
+   sits, which waits hidden; on phones inside the field band above it), hold, then flow into the landscape
+   while the heading rises in. Springs are stiffer and better damped while the letters form. Repeat visits,
+   reduced motion and no WebGL skip it (a safety net shows everything after 3.6 s).
+2. **Scrolling out of the hero** disperses its particles (outward and upward, fading).
+3. **Specimens.** Fine pointers: hovering a row shows that project's form in a floating preview that
+   follows the cursor and morphs between projects. Touch: each row shows its form inline above the text,
+   touchable, lazily live. Every row also shows Code / Paper / Demo when those links exist.
+4. **Continuity.** Opening a project, the specimen you were looking at (preview, inline specimen or
+   next-project specimen) grows into the project's large field: the main field starts in that same form, so
+   it reads as one object growing, not a page reloading. Back reverses it into the row (the preview
+   reappears on the row on desktop). Implemented by giving exactly one element per side the
+   view-transition name `field` (`continuity.ts`).
+5. **Next project:** every project page ends with one large link: title, type line, live specimen.
+6. **Menu:** each item has a one-line description; items rise in turn; a faint particle horizon fills the
+   empty space; the menu closes on selection; the email stays at the bottom.
+7. **Contact ending:** heading, the email as one large mailto link with a subtle magnetic pull, GitHub, and
+   a quiet particle cluster that gathers behind the block as you arrive.
+
+**Measured** (Playwright, Pixel 5 emulation, touch, 4× CPU throttle, software WebGL; see REVIEW.md):
+the field's JavaScript costs ≈ 2–6 ms per frame (budget 16.7 ms); p50 frame 16.7 ms in every phone flow.
+
+**Scenes** (`scenes.ts` builds them, `behaviours.ts` gives them meaning). One scene per project (its
+specimen and its page), plus two quiet ones:
 
 | Scene | Used for | What touching does |
 | --- | --- | --- |
@@ -182,9 +211,11 @@ page and shown as a still on /work/:
 | `network` | Fault-tolerant feedback | one node has failed (red); messages try it, bounce back and reroute. Tap a node to fail it instead |
 | `tree` | Agentic Shell | broken symlinks dangle in red; touching one reconnects it (it slowly breaks again) |
 | `noise` | 404 | the field never converges |
+| `gather` | contact block | a slowly turning cluster that gathers as you arrive |
+| `dust` | menu backdrop | a calm horizon low in the frame |
 
-The same generators produce the static SVG fallback and the Work-page stills, so they always match the live
-scene. Every field carries the same caption: the project name (when there is one) and a device-aware hint
+The same generators produce the static SVG renders (shown until a live stage arrives, and without WebGL or
+with reduced motion), so they always match the live scene. Every field carries the same caption: the project name (when there is one) and a device-aware hint
 ("Drag across the field" on touch, "Move the cursor across the field" with a mouse). Every scene responds
 the same way (particles part and spring back); a project's scene adds at most one behaviour of its own.
 
@@ -192,7 +223,7 @@ the same way (particles part and spring back); a project's scene adds at most on
 
 ```
 /                    Home (config-ordered sections)
-/work/               Research & projects: areas with their projects, each with a still of its field
+/work/               Research & projects: areas with their projects (same rows as home, plus topics)
 /work/<slug>/        Project detail (one per Markdown file)
 /about/              Bio, education, interests, skills, [timeline], [publications]
 /notes/              Notes index           (exists only when notes are enabled AND ≥ 1 post)
@@ -206,15 +237,16 @@ the same way (particles part and spring back); a project's scene adds at most on
 
 1. `hero` — the field, the name, one status line, two actions ("Research & projects", "Contact").
 2. `research` — "Research & projects": each research area is a heading with one sentence and its projects
-   directly underneath (type · stage line, title, summary, Code / Paper / Demo links when set). A project
-   appears once. The Work page uses the same structure and adds a still of each project's field.
+   directly underneath (type · stage line, title, summary, Code / Paper / Demo links when set; the whole
+   row opens the project). A project appears once. Specimens: floating preview with a mouse, inline on
+   touch. The Work page uses the same rows and adds topics.
 3. `about` — short bio and education (a portrait appears beside the text once `public/images/profile.jpg`
    exists).
 4. `stack` — skills as a specification sheet.
 5. `timeline` / `publications` / `notes` / `github` — optional (flag + content).
 
-**Contact** is no longer a section: it opens the footer on every page (a short heading, the email as a
-large mailto link, GitHub), followed by the footer's link lists.
+**Contact** opens the footer on every page: a short heading, the email as one large mailto link (magnetic
+with a mouse), GitHub, and the gathering particle field behind; the footer's link lists follow.
 
 Adding a section = create `src/sections/<Name>.astro` and add `'<name>'` to `homeSections`.
 
@@ -261,8 +293,7 @@ with base `/` is a configuration change only.
 | --- | --- | --- |
 | Astro 5 | MIT | static output, content collections, View Transitions (`ClientRouter`) |
 | TypeScript | Apache-2.0 | |
-| Three.js | MIT | dynamic import, only where the stage appears |
-| GSAP + ScrollTrigger | GSAP "Standard 'no charge' licence" | free for commercial and personal use since the 2025 licence change; verified in the npm manifest. Loaded lazily |
+| Particle renderer | — | own code (`src/scripts/stage/gl.ts`): WebGL points, plus a 2D start; Three.js and GSAP were removed in rounds 2–3 |
 | Lenis | MIT | smooth scroll |
 | Material Symbols (Sharp) | Apache-2.0 | only the handful of SVGs used are inlined (`src/components/Icon.astro`) |
 | Doto / Instrument Sans / IBM Plex Mono | SIL OFL 1.1 | self-hosted |
@@ -276,14 +307,28 @@ graph is fetched at **build time** only.
 
 ## 15. Deviations and additions made during the build
 
-* **Review round 2 (real Android phone):** one persistent field morphing between pages; "What I work on"
-  and the project list merged into "Research & projects" (same structure on /work/); contact folded into
-  the top of the footer; every decorative red dot/square, all index numbering, the "Portfolio" label and
-  the column guides removed; one motion grammar (§7). See REVIEW.md.
-* **Review round 1:** the field contained to where it can be looked at; spring-physics touch with passive
-  listeners; one interactive scene per project; the Work page grouped by research area.
-* **Phones:** the live field starts on first touch/scroll (or after 9 s); the identical SVG render is shown
-  until then. Desktop starts it when the browser is idle.
+* **Review round 3:**
+  * signature moments (§8): name assembly, hero dispersal, floating preview / inline specimens,
+    specimen → project continuity, next-project link, menu descriptions and backdrop, ring cursor, magnetic
+    contact ending;
+  * Three.js replaced by a small WebGL renderer, with a 2D start on first visits;
+  * in-page anchors fixed across view transitions (one handler, header offset, focus);
+  * the Work page's static stills are replaced by the same specimen system as home;
+  * the previous / next pager is now one large "Next project".
+* **Review round 2 (real Android phone):**
+  * one persistent field morphing between pages;
+  * "What I work on" and the project list merged into "Research & projects";
+  * contact folded into the top of the footer;
+  * every decorative red dot/square, all index numbering, the "Portfolio" label and the column guides
+    removed;
+  * one motion grammar (§7).
+* **Review round 1:**
+  * the field contained to where it can be looked at;
+  * spring-physics touch with passive listeners;
+  * one interactive scene per project;
+  * the Work page grouped by research area.
+* **Phones:** on a repeat visit the live field starts on the first touch or scroll (or after 9 s); the
+  first visit to home starts it at once, on a 2D canvas, for the name.
 * **404** uses the `noise` scene: the field never converges.
 * **Contrast:** lowest measured pair is red text on the panel colour in light mode (4.82 : 1); red text is
-  now used only for the focus ring.
+  used only for the focus ring.

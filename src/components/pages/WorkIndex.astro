@@ -47,10 +47,10 @@ const stages = countBy(projects, (p) => (p.data.stage ? [p.data.stage] : []));
         <p class="label filters__count" role="status" aria-live="polite" data-filter-count>{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
       </div>
       <div class="rgroup__list" data-plates>
-        {projects.map((p) => <ProjectEntry project={p} still level={3} />)}
+        {projects.map((p) => <ProjectEntry project={p} detailed level={3} />)}
       </div>
     </>
   ) : (
-    <ResearchIndex projects={projects} still level={2} />
+    <ResearchIndex projects={projects} detailed level={2} />
   )}
 </section>
