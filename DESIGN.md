@@ -34,8 +34,7 @@ Authority comes from precision and restraint, not decoration.
 * **Voice:** confident, precise, quiet, technical. Sentences are short and factual. No superlatives.
 * **Shape language:** right angles only. 1px rules. Registration marks (`+`) where rules cross.
 * **Annotations (with restraint):** index numbers on sections, status tags on projects, coordinates
-  of Vellore in the footer/hero readout, a scroll/section readout (home only), live particle count
-  in the 3D caption. Only *true* values are shown (no fabricated metrics).
+  of Vellore in the footer, status lines on projects. Only *true* values are shown (no fabricated metrics).
 * **Content honesty:** nothing is invented. Any figure shown is either supplied by the owner or is a
   property of the page itself (e.g. the number of particles being drawn).
 
@@ -111,9 +110,8 @@ reading); small labels use Plex Mono.
 * **Vocabulary:**
   1. *Line-mask rise* for display headings (text slides up inside an overflow mask).
   2. *Rule draw* — hairlines scale in from the left.
-  3. *Scrub* — the focus section and the manifesto words are driven by scroll position.
-  4. *Wipe* — project rows and plates enter with a clip-path wipe, staggered by index.
-  5. *Morph* — the 3D particle field changes form with scroll (see §8).
+  3. *Wipe* — project rows enter with a clip-path wipe, staggered by index.
+  4. *Spring* — the particle fields respond to cursor and finger with spring physics (see §8).
 * **Smooth scroll:** Lenis (≈1.1s glide), disabled on touch devices' native momentum where it hurts,
   and entirely under reduced motion.
 * **Page transitions:** Astro View Transitions. Nav and the theme toggle persist; the page body
@@ -124,17 +122,15 @@ reading); small labels use Plex Mono.
 
 ## 8. The 3D signature element — three concepts
 
-All three share the same technology (a GPU point cloud driven entirely by shader maths; the CPU only
-uploads buffers once and updates a handful of uniforms per frame).
+All three share the same technology (a GPU point cloud). Concept A was chosen; its implementation is
+described under "Decision" below.
 
 **A. "Reconstruction" (chosen).** A cloud of soft, Gaussian-profile splats begins as uninitialised
 noise (like the random initialisation that precedes 3DGS training), *converges* into a captured scene
-as the page loads, and then re-assembles into different structures as you scroll — a leaf (self-
-supervised pre-training on crop images), an agent graph (multi-agent systems), a sphere with a region
-carved out (scene unlearning / object removal), a tree with looping links (the inode/symlink agent),
-a flat measurement grid — before dispersing again at the end. The cursor acts as a lens that pushes
-and swirls nearby splats. Tells the story of the research (noise → structure → erasure) without
-words, and each form is tied to a real project.
+as the page loads. Each project then has its own form — a leaf (self-supervised pre-training on crop
+images), an agent graph, a failing network, a directory tree with links, a splat object that can be
+erased — and the cursor or a finger moves the particles. Tells the story of the research without words,
+and each form is tied to a real project.
 
 **B. "Orbit scan".** One scanned object (e.g. a statue) that rotates with scroll and is relit by the
 cursor. Beautiful, but it says "3D model viewer" rather than "research", and one object cannot carry
@@ -143,30 +139,50 @@ a whole page.
 **C. "Seismograph field".** A heightfield of points whose amplitude follows scroll velocity and cursor
 energy. Elegant and cheap, but abstract; it has no link to Gaussian splatting.
 
-**Decision: A.** B's rotation and C's heightfield survive as two of A's forms (`scene`, `grid`).
+**Decision: A**, then simplified after testing on a real phone (review round 1): the field no longer
+travels down the page behind the text. It lives only where it can be looked at — inside the hero, on each
+project's card and on its page — and every use is properly interactive instead of decorative.
 
-**Implementation notes** (`src/scripts/stage/`):
-* `forms.ts` — pure functions that generate each form (`noise`, `scene`, `leaf`, `graph`, `erase`,
-  `tree`, `grid`) as `Float32Array`s. The same generators render the static SVG fallback at build
-  time, so the fallback is never out of sync with the real thing.
-* Vertex shader blends three position buffers: A and B (the forms either side of the current scroll
-  position, scrubbed with a per-particle stagger and an arc of dispersion) and C (a hover form,
-  e.g. hovering a project row morphs the cloud to that project's form). Cursor displacement, breathing
-  motion and point size are computed in the shader.
-* Fragment shader draws a Gaussian falloff (`exp(-r²k)`) — the "splat" look. Additive blending in
-  dark mode, normal blending in light mode.
-* Budget: 16,000 points desktop / 6,000 mobile; DPR capped at 1.75 / 1.25; renderer created only
-  after the page is idle and the stage is visible; `three` is a dynamic import (separate chunk);
-  render loop pauses on `visibilitychange` and when the stage leaves the viewport; falls back to the
-  static SVG when WebGL is unavailable, on context loss, or under reduced motion.
-* Each project can set `form:` in its front matter to choose its shape; otherwise one is derived from
-  the slug so every project still has a distinct mark.
+**Interaction model** (`src/scripts/stage/stage.ts`):
+* A small CPU spring-physics engine (a few thousand particles) writes positions into a GPU point cloud.
+  Each particle springs toward its home position (slightly under-damped, so things drift back softly
+  with a little overshoot). A finger or cursor pushes particles aside with a smooth falloff and a faint
+  swirl; a tap or click sends a ripple outward. Pointer position and strength are eased, so contact
+  never teleports.
+* **Touch never blocks scrolling.** Fingers are read through *passive* `touchstart/move/end` listeners
+  (touchmove keeps firing while the page scrolls, so the field keeps reacting), containers declare
+  `touch-action: pan-y`, and `overscroll-behavior-x: none` stops a sideways drag from triggering
+  browser history swipes. Mouse and pen use pointer events.
+* At most 4 WebGL contexts exist (a renderer pool lends canvases to whichever stages are on screen);
+  stages mount when they approach the viewport and pause when they leave it or the tab is hidden.
+* Budget: hero 12,000 / 5,500 particles, cards 5,200 / 3,400, project page 8,500 / 4,500 (desktop /
+  phone); DPR capped at 1.75 / 1.5; half frame-rate when idle. Measured on an emulated phone with 4×
+  CPU throttle: ≈ 3.5–5 ms of JS per frame (budget 16.7 ms).
+* Phones start the live field on first touch or scroll (or after 9 s); until then the identical
+  server-rendered SVG is shown. Reduced motion and missing WebGL keep the SVG.
+
+**Scenes** (`scenes.ts` builds them, `behaviours.ts` gives them meaning). One scene per project, used on
+its card and its page:
+
+| Scene | Used for | What touching does |
+| --- | --- | --- |
+| `scene` | home hero (a captured landscape) | parts around the finger |
+| `leaf` | LeafScope | parts around the finger (a whole leaf: surface, midrib, veins, outline, stem) |
+| `ghost` | Ghosts in the Splat | dissolves the splat object under the finger, leaving a faint residue that slowly heals |
+| `graph` | MAST framework extension | lights the agent under the finger; a pulse travels along its edges and one hop beyond |
+| `network` | Fault-tolerant feedback | one node has failed (red); messages try it, bounce back and reroute. Tap a node to fail it instead |
+| `tree` | Agentic Shell | broken symlinks dangle in red; touching one reconnects it (it slowly breaks again) |
+| `noise` | 404 | the field never converges |
+
+The same generators produce the static SVG fallback, so it always matches the live scene. Captions are
+uniform: project name on one side, a device-aware hint on the other ("Drag across the field" on touch,
+"Move the cursor across the field" with a mouse).
 
 ## 9. Page map
 
 ```
 /                    Home (config-ordered sections)
-/work/               Project index — filter by topic and status (?tag= & ?status= deep-link)
+/work/               Project index, grouped under the three research areas (filters are an optional module)
 /work/<slug>/        Project detail (one per Markdown file)
 /about/              Bio, education, interests, skills, [timeline], [publications]
 /notes/              Notes index           (exists only when notes are enabled AND ≥ 1 post)
@@ -178,31 +194,28 @@ energy. Elegant and cheap, but abstract; it has no link to Gaussian splatting.
 
 ## 10. Homepage sections, in order (`site.config.ts → homeSections`)
 
-1. `hero` — name at display size, tagline, status line, readout, 3D stage (form: `scene`).
-2. `focus` — pinned, scrubbed sequence of the three research interests (forms: `scene` → `leaf` → `graph`).
-3. `work` — selected (featured) projects as an index list; hover morphs the 3D field (form: `erase`).
-4. `about` — short bio, education, portrait plate (photo if `public/images/profile.jpg` exists, a
-   typographic plate otherwise).
-5. `stack` — skills as a specification sheet (form: `grid`).
-6. `timeline` — optional (flag + content).
-7. `publications` — optional (flag + content).
-8. `notes` — optional (flag + content).
-9. `github` — optional (flag; build-time fetch; hidden on failure).
-10. `contact` — large mailto link with copy button, social links, optional form (flag) (form: `noise`).
+1. `hero` — name at display size, one status line, two buttons; the interactive field lives inside it.
+2. `focus` — "What I work on": the three research areas, each with a sentence and links to its projects.
+3. `work` — all featured projects as an index list.
+4. `about` — short bio and education (a portrait appears beside the text once `public/images/profile.jpg`
+   exists).
+5. `stack` — skills as a specification sheet.
+6. `timeline` / `publications` / `notes` / `github` — optional (flag + content).
+7. `contact` — heading, large mailto link with a copy button, GitHub (and other filled social links), optional form.
+
+No particles appear behind body text anywhere.
 
 Adding a section = create `src/sections/<Name>.astro` and add `'<name>'` to `homeSections`.
 
 ## 11. Content model (Astro content collections, `src/content.config.ts`)
 
-* **projects** (`src/content/projects/*.md`): `title`, `status`, `summary`, `tags[]`, `role?`,
-  `links?` (`github?`, `paper?`, `demo?`, `other[]?`), `cover?` (image), `featured`, `order`,
-  `form?` (3D shape), `draft?`. Body = Markdown.
-* **notes** (`src/content/notes/*.md`): `title`, `date`, `summary`, `tags?`, `draft?`.
-* **timeline** (`src/content/timeline/*.md`): `title`, `org`, `kind`
-  (`education|experience|research|award|other`), `start`, `end?` (absent = present), `location?`,
-  `summary?`.
-* **publications** (`src/content/publications/*.md`): `title`, `authors[]`, `venue`, `year`,
-  `status?`, `links?` (`paper?`, `code?`, `doi?`).
+* **projects** (`src/content/projects/*.md`): `title`, `type` (`Research project` | `Team project` |
+  `Course project`), `stage?` (`In progress` | `Early stage` | `Completed`), `area?` (one of the research
+  areas in `site.config.ts → interests`; groups the project on /work/), `summary`, `tags[]` (max 2, from
+  the controlled list `TAGS`), `role?`, `links?` (`github?`, `paper?`, `demo?`, `other[]?`), `cover?`
+  (image), `featured`, `order`, `visual?` (`leaf` | `ghost` | `graph` | `network` | `tree`), `facts?`,
+  `draft?`. Shown as one quiet line, "Research project · In progress". Body = Markdown.
+* **notes**, **timeline**, **publications**: as before (see README).
 * Files whose name begins with `_` are ignored by every loader — each collection ships with an
   `_example.md` to copy.
 
@@ -217,6 +230,7 @@ Adding a section = create `src/sections/<Name>.astro` and add `'<name>'` to `hom
 | `timeline` | off | about + home section |
 | `githubGraph` | off | build-time contribution graph |
 | `contactForm` | off | form in contact section |
+| `workFilters` | off | topic / type / stage filters on /work/ (replaces the grouped layout with a filterable grid; for when there are many projects) |
 
 A module renders only when **flag on AND content exists**. Optional front-matter fields render only
 when present. Social links render only when filled. "Download CV" renders only if `public/cv.pdf`
@@ -251,13 +265,12 @@ graph is fetched at **build time** only.
 
 ## 15. Deviations and additions made during the build
 
-* **Scroll readout (HUD):** a slim solid bar on the home page only (scroll percentage, section label and
-  `NN/NN` index; the hero is `00`). It shows real values only and is hidden under reduced motion.
+* **Review round 1 (real Android phone):** see REVIEW.md for the full list. In short: the field is
+  contained (hero, cards, project pages), touch uses spring physics with passive listeners, each project
+  has its own interactive scene, the Work page is grouped by research area, the scroll readout and the
+  index card were removed.
 * **Phones:** the live field starts on first touch/scroll (or after 9 s); the identical SVG render is shown
-  until then. Desktop starts it when the browser is idle. This keeps mobile Lighthouse at 99+ with
-  software WebGL.
+  until then. Desktop starts it when the browser is idle.
 * **Section index numbers** are CSS counters (`data-numbered`), so hiding a section renumbers the rest.
-* **Hover morph:** any element with `data-hover-form="leaf"` (etc.) reshapes the field on hover/focus.
-* **Mobile filters** scroll horizontally instead of wrapping to keep the first screen useful.
-* **404** uses the noise form: the field never converges.
+* **404** uses the `noise` scene: the field never converges.
 * **Contrast:** lowest measured pair is red text on the panel colour in light mode (4.82 : 1).

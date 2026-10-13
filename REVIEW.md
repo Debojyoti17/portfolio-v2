@@ -3,6 +3,109 @@
 Build report for the portfolio. Read this first; details of the design are in [DESIGN.md](DESIGN.md) and
 day-to-day instructions are in [README.md](README.md).
 
+---
+
+## Review round 1 — feedback from a real Android phone (this update)
+
+**What was wrong:** the particle visuals looked good in stills but felt poorly executed in use — touch was
+broken or jerky, labels were confusing, and the visuals were inconsistent between projects. The approach
+changed from "many decorative effects" to "few, properly interactive ones".
+
+### 1. Touch interaction (rebuilt)
+* New CPU spring-physics engine (`src/scripts/stage/stage.ts`): particles spring back to their home
+  position with a little overshoot; a finger or cursor parts them smoothly (eased pointer, smooth falloff,
+  faint swirl); a tap/click sends a ripple outward; multi-touch (2 fingers).
+* **Does not block scrolling:** fingers are read through *passive* touch listeners (touchmove keeps firing
+  while the page scrolls), stages declare `touch-action: pan-y`, and `overscroll-behavior-x: none` stops a
+  sideways drag from triggering browser history swipe (this was a real bug found while testing: in touch
+  emulation a horizontal drag navigated away from the page).
+* **Measured** (`node scripts/perf-touch.mjs`: Playwright + Chromium, Pixel 5 emulation,
+  4× CPU throttle): while dragging across the hero and across cards there were **0 long tasks** and **0 frames
+  over 33 ms**; the engine costs ≈ 3.5 ms (hero) to 5 ms (card) of JS per frame, p95 ≈ 6–8 ms, against a 16.7 ms
+  budget. A vertical drag that starts on a field scrolls the page normally (+285 px / +192 px in the test).
+  One honest caveat: in the one run that scrolls the hero *for the first time*, 7 of 134 frames took 33–67 ms
+  (a one-off compositor hitch under software GL); repeat scrolls were clean. I could not test on a real GPU.
+* Budget: hero 5,500 particles on phones (12,000 desktop), cards 3,400 (5,200), project page 4,500 (8,500);
+  DPR ≤ 1.5 on phones; at most 4 WebGL contexts (a renderer pool lends canvases; found and fixed a
+  context-exhaustion error while testing the Work page); half frame rate when idle; paused off-screen.
+
+### 2. Hero
+* Tagline paragraph removed. The hero keeps one status line ("Third-year B.Tech CSE · VIT Vellore") and
+  the two buttons. The label above the name is now just "Portfolio" (no wrapping). The "Form 01 / particle
+  count" readout is gone.
+* The field is **contained in the hero**; there are no particles behind any other section.
+
+### 3. Project visuals (one meaningful, interactive form per project, same on card and page)
+| Project | Visual | Interaction |
+| --- | --- | --- |
+| LeafScope | whole leaf (surface, midrib, veins, outline, stem) | parts around the finger |
+| Ghosts in the Splat | vase-like object made of soft splats | touching dissolves it, leaving a faint ghost residue that heals |
+| MAST framework extension | small agent graph | touching an agent lights it; a pulse travels along its edges (and one hop further) |
+| Fault-tolerant feedback | agent network, one node failed (red) | messages try the failed node, bounce and reroute; tap a node to fail it instead (also rotates by itself) |
+| Agentic Shell | directory tree with links | broken links dangle in red; touching one reconnects it (it slowly breaks again) |
+
+Verified in a browser with ad-hoc pixel-level checks: ghost region dissolves and then heals; graph node goes
+red on hover; the failed node moves when another is tapped; dangling red links reduce when touched.
+* Captions: project pages show the project name on the left and a device-aware hint on the right
+  ("Drag across the field" on touch, "Move the cursor across the field" with a mouse) — identical layout
+  for all five. Cards carry only the hint. "4,500 particles", "Form — …" and similar filler are gone.
+* Work-page cards are interactive **in place**; only the title (and "View project") is the link, so touching
+  the visual never navigates.
+
+### 4. Work page
+* Filter bars removed. Projects are grouped under the three research areas with headings; each project
+  appears once, under its main area (LeafScope → Self-supervised learning; Ghosts → Computer vision; MAST,
+  fault-tolerant feedback and Agentic Shell → Reliable multi-agent AI). Areas come from `interests` in
+  `site.config.ts` and a project's `area:` field. The filter code survives as an optional module:
+  `features.workFilters` (off by default; tested with it on).
+* "Status" is split into **type** (Research project / Team project / Course project) and **stage**
+  (In progress / Early stage / Completed), shown as one line: "Research project · In progress". Stage is
+  optional: you did not tell me the stage of the two team projects, so they show only "Team project".
+* Tags: at most 2 per project, from a controlled list in `src/content.config.ts`, shown as quiet text.
+
+### 5. Content corrections
+* MAST framework extension is now "Research project · In progress". arXiv is not mentioned anywhere
+  (also removed from templates, the social-link list and the docs).
+* About: education reads "2024 – 2028 (expected)" on one line.
+
+### 6. "What I work on"
+Replaced the pinned scroll list with three columns (stacked on phones): area name, one sentence, and the
+names of its projects as links. No particles behind it.
+
+### 7. About
+The "DBM" index card is gone. Without a photo the section is text and education only; with
+`public/images/profile.jpg` the portrait appears beside it. The bio is body-sized text.
+
+### 8. Contact and footer
+Repeated tagline removed from the footer; contact stays a heading, the email with a copy button, and GitHub.
+The fixed "SCROLL 000" bar is removed. The footer mark's red "+" is now a small red square like the header's.
+
+### Checks after this round
+* Lighthouse (mobile preset, Chromium with software WebGL): Home, Work, three project pages and About all
+  **99 / 100 / 100 / 100** (performance / accessibility / best practices / SEO); LCP ≈ 1.9–2.0 s, TBT 0 ms,
+  CLS ≤ 0.001.
+* `astro check` 0 errors; link checker 0 broken links; browser smoke tests (`scripts/interact.mjs`, 25 checks
+  across desktop, touch phone, reduced motion and no-WebGL) all pass.
+* Screenshots reviewed at 390 px (light and dark), 768 px earlier in the build, and 1440 px for Home, Work,
+  project pages (Ghosts, MAST, Fault-tolerant, Agentic Shell) and About. Fixes from review: ghost idle sweep
+  was erasing too much (smaller, slower, heals faster); leaf/graph had too little structure at card size
+  (denser veins, smaller nodes); card and project visuals were clipping at the edges (scaled to leave room
+  for the caption); footer square was too large; the status column on home wrapped (wider column).
+
+### Could not do / limitations of this round
+* **No real device.** The numbers above come from Chromium touch emulation with a 4× CPU throttle and a
+  software GPU. Please try the preview on the phone again: pay attention to the first touch (the live
+  field is loaded on first touch/scroll on phones so first load stays light, so the very first drag after
+  opening a page can arrive a moment before the particles respond).
+* Full-page screenshots of the Work page show some cards mid-assembly (they were all scrolled into view at
+  once); in real use each card assembles as it comes on screen.
+* The network visual moves its failed node by itself every ~8 s unless you have tapped; if you would
+  rather it stay fixed until tapped, that is one line in `behaviours.ts`.
+
+---
+
+## Original build report (previous round)
+
 ## Step 0: repository review
 
 * The repository contained one commit with a one-line `README.md` (`# portfolio-v2`) and nothing else.
@@ -22,13 +125,11 @@ day-to-day instructions are in [README.md](README.md).
   Transitions (`ClientRouter`), Three.js (lazy), GSAP + ScrollTrigger and Lenis (lazy), self-hosted fonts.
 * **Pages:** Home, Work (filter by topic and status, deep-linkable `?tag=` / `?status=`), 5 project
   pages, About, 404, plus `/notes/` that only exists once notes are enabled and at least one post exists.
-* **Homepage sections** (order set in `site.config.ts`): hero, research focus (pinned and scroll-scrubbed),
+* **Homepage sections** (order set in `site.config.ts`): hero, "What I work on" (three research areas; was a pinned scroll list before round 1),
   selected work, about, skills, then the optional timeline / publications / notes / GitHub graph, and contact.
-* **3D signature:** "Reconstruction" — a Gaussian-splat-style GPU point cloud that starts as noise,
-  converges into a captured scene, then re-forms as a leaf, an agent graph, a sphere with a region
-  removed, a file tree with looping links, and a measurement grid as you scroll. The cursor pushes and
-  swirls nearby splats; hovering a project row morphs the field to that project's shape. Project pages
-  show their own shape in a framed viewport.
+* **3D signature:** "Reconstruction" — a Gaussian-splat-style point cloud that starts as noise and
+  converges into form. (Superseded by review round 1 above: it now lives in the hero, on project cards
+  and on project pages only, with per-project interactive scenes.)
 * **Modularity:** one `site.config.ts`; add a section = one component + one config string; Markdown
   collections with copy-able `_example.md` templates; all optional modules behind flags and hidden when
   empty; optional fields, social links, CV button (`public/cv.pdf`) and photo (`public/images/profile.jpg`)

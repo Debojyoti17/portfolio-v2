@@ -38,16 +38,26 @@ focus lines, the navigation, **feature flags** and the **order of homepage secti
 
 1. Copy `src/content/projects/_example.md` to `src/content/projects/my-project.md`
    (the file name becomes the URL: `/work/my-project/`).
-2. Fill in the front matter. Only `title`, `status`, `summary` are required.
+2. Fill in the front matter. Required: `title`, `type` (Research project / Team project / Course project),
+   `summary`. Optional: `stage` (In progress / Early stage / Completed), `area`, `tags`.
 3. Write the description in Markdown under the second `---`.
 
-Optional fields (`links.github`, `links.paper`, `links.demo`, `role`, `cover`, `facts`) show up only when
-you fill them in. `featured: true` puts the project on the home page. `order` sorts (lower first).
-`form` chooses the 3D shape that represents the project: `scene`, `leaf`, `graph`, `erase`, `tree`
-or `grid`.
+* **`area`** puts the project under one of your research areas on the Work page. It must match a `title`
+  in `interests` in `site.config.ts`. Projects without an area appear under "More work".
+* **`tags`**: at most two, from the controlled list at the top of `src/content.config.ts` (add a name there
+  first when you need a new tag).
+* **`visual`** chooses the interactive visual on the card and the project page: `leaf`, `ghost`, `graph`,
+  `network` or `tree`. If omitted, one is picked from the file name.
+* The project line under each title is built from `type` and `stage`: "Research project · In progress".
+* Optional fields (`links.github`, `links.paper`, `links.demo`, `role`, `cover`, `facts`) show up only
+  when you fill them in. `featured: true` puts the project on the home page; `order` sorts (lower first).
 
 **Cover image:** put the file in `src/assets/projects/` and set
-`cover: ../../assets/projects/my-project.jpg` and `coverAlt: "describe it"`. It is optimised at build time.
+`cover: ../../assets/projects/my-project.jpg` and `coverAlt: "describe it"`. On the Work page the cover
+replaces the interactive visual on that project's card.
+
+**Research areas:** edit `interests` in `site.config.ts` (a title and one sentence each). They head the
+groups on the Work page and the three columns of "What I work on" on the home page.
 
 ## Add a note (blog post)
 
@@ -90,9 +100,7 @@ Optional attributes on the `<section>`:
 | Attribute | Meaning |
 | --- | --- |
 | `data-numbered` | gets the next index number (`03`) in its header |
-| `data-label="Awards"` | name shown in the scroll readout |
-| `data-form="graph"` | 3D shape shown while this section is on screen |
-| `data-sx`, `data-so` | horizontal offset (−1…1) and opacity (0…1) of the 3D field there |
+| `data-label="Awards"` | a name for the section |
 
 ## Switch modules on and off
 
@@ -105,10 +113,14 @@ export const features = {
   timeline: false,     // resume timeline
   githubGraph: false,  // GitHub contribution graph, fetched at build time (hides itself on failure)
   contactForm: false,  // contact form (see below)
+  workFilters: false,  // topic / type / stage filters on /work/ (for when there are many projects)
 };
 ```
 
 A module appears only when its flag is on **and** it has content. Nothing says “coming soon”.
+
+**Work filters:** with `workFilters: true` the Work page becomes one filterable grid (topic, type, stage chips)
+and the grouping by research area is replaced. Leave it off while there are only a few projects.
 
 **Contact form:** with the flag on and `contactForm.action` empty, the form opens the visitor’s mail
 app. To use a form service (Formspree, Basin, …), paste its endpoint into `contactForm.action`.
@@ -148,7 +160,7 @@ src/components/           shared UI (Nav, Footer, Icon, …)
 src/pages/                routes (home, work, about, notes, 404, og images, robots)
 src/styles/               tokens.css (design tokens) + plain CSS
 src/scripts/              client code: ui, motion (Lenis + GSAP), stage (Three.js)
-src/scripts/stage/forms.ts  the 3D shapes (also used for static SVG fallbacks)
+src/scripts/stage/       particle engine (stage.ts), scenes and what touching them does (scenes.ts, behaviours.ts)
 src/assets/fonts, icons   self-hosted fonts and SVG icons, with licences
 public/                   cv.pdf, images/profile.jpg, favicon
 scripts/                  screenshots, Lighthouse, link and contrast checks

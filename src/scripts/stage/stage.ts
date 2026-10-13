@@ -278,9 +278,11 @@ class Stage {
       this.offX = this.portrait ? 0 : 0.2 * this.halfW;
       this.offY = this.portrait ? this.halfH * 0.34 : 0;
     } else {
-      this.scale = Math.min((0.82 * this.halfW) / 3.5, (0.8 * this.halfH) / 2.25);
+      const fitH = this.mode === 'viewport' ? 0.7 : 0.8;
+      this.scale = Math.min((0.82 * this.halfW) / 3.5, (fitH * this.halfH) / 2.25);
       this.offX = 0;
-      this.offY = 0;
+      // leave room for the caption strip along the bottom edge
+      this.offY = this.mode === 'viewport' ? this.halfH * 0.05 : 0;
     }
     const rPx = Math.min(115, Math.max(46, 0.13 * Math.min(w, h))) * (isCoarse() ? 1.15 : 1);
     this.marginPx = rPx;
