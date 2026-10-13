@@ -313,7 +313,8 @@ class Field {
       this.scale = Math.min((fit * this.halfW) / 3.5, ((this.mode === 'hero' ? 0.9 : 0.8) * this.halfH) / 2.25);
       this.offX = 0;
     }
-    this.offY = 0;
+    // the landscape sits high in its own bounds; on phones lower it so it meets the name below
+    this.offY = this.mode === 'hero' && !this.side ? -0.04 * this.halfH : 0;
     const rPx = Math.min(115, Math.max(46, 0.13 * Math.min(w, h))) * (isCoarse() ? 1.15 : 1);
     this.marginPx = rPx;
     this.R = rPx * ((2 * this.halfH) / h);

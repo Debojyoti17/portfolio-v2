@@ -96,8 +96,8 @@
   overflow: hidden;
 }
 .hero__field .field__slot {
-  aspect-ratio: 4 / 3;
-  max-height: 46svh;
+  aspect-ratio: 2 / 1;
+  max-height: 40svh;
   width: 100%;
 }
 .hero__field .field__cap {

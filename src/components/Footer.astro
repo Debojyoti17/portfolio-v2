@@ -15,6 +15,8 @@ const index = [
   ...(features.notes && notes.length ? [{ label: 'Notes', href: '/notes/' }] : []),
 ];
 const github = siteConfig.social.github;
+// GitHub already sits in the contact block above; the list holds everything else
+const elsewhere = socialLinks.filter((s) => s.id !== 'github');
 const action = siteConfig.contactForm.action;
 ---
 
@@ -55,11 +57,11 @@ const action = siteConfig.contactForm.action;
         </nav>
       )}
 
-      {(socialLinks.length > 0 || hasCV) && (
+      {(elsewhere.length > 0 || hasCV) && (
         <div class="footer__col">
           <p class="label footer__title">Elsewhere</p>
           <ul class="footer__list">
-            {socialLinks.map((s) => (
+            {elsewhere.map((s) => (
               <li><a class="link" href={s.url} rel="noopener me">{s.label}<Icon name="arrow_outward" /></a></li>
             ))}
             {hasCV && <li><a class="link" href={href(siteConfig.files.cv)} download>CV (PDF)<Icon name="download" /></a></li>}

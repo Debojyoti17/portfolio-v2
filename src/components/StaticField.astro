@@ -9,9 +9,11 @@ interface Props {
   scene: SceneName;
   count?: number;
   class?: string;
+  /** stills: red only where it carries meaning */
+  semanticRedOnly?: boolean;
 }
-const { scene, count = 1100, class: className = '' } = Astro.props;
-const f = buildStaticField(scene, count);
+const { scene, count = 1100, class: className = '', semanticRedOnly = false } = Astro.props;
+const f = buildStaticField(scene, count, semanticRedOnly);
 ---
 
 <svg class={`static-field ${className}`.trim()} viewBox={f.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">

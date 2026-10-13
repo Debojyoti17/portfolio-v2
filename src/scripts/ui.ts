@@ -1,4 +1,4 @@
-/** Small, dependency-free UI behaviour: theme, nav, menu, clock, copy, filters, forms. */
+/** Small, dependency-free UI behaviour: theme, nav, menu, clock, hints, filters, forms. */
 
 type Cleanup = () => void;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -132,23 +132,6 @@ export function initUI(): Cleanup {
     const id = window.setInterval(draw, 30000);
     cleanups.push(() => clearInterval(id));
   }
-
-  /* copy to clipboard */
-  document.querySelectorAll<HTMLElement>('[data-copy]').forEach((btn) =>
-    on(btn, 'click', async () => {
-      const text = btn.dataset.copy ?? '';
-      const label = btn.querySelector('[data-copy-label]');
-      const status = btn.closest('.contact__block')?.querySelector('[data-copy-status]');
-      try {
-        await navigator.clipboard.writeText(text);
-        if (label) label.textContent = 'Copied';
-        if (status) status.textContent = 'Email address copied to clipboard';
-      } catch {
-        if (label) label.textContent = text;
-      }
-      window.setTimeout(() => label && (label.textContent = 'Copy address'), 2200);
-    }),
-  );
 
   /* contact form: no provider → open the visitor's mail app */
   document.querySelectorAll<HTMLFormElement>('[data-contact-form]').forEach((form) => {

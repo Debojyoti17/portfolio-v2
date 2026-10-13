@@ -1,8 +1,8 @@
 # Debojyoti Barai Mitul — portfolio
 
 A static site built with [Astro](https://astro.build), plain CSS, and a small amount of TypeScript.
-It has a 3D point-cloud hero (Three.js), smooth scrolling, light and dark themes, and no analytics,
-cookies or third-party requests.
+It has one interactive particle field (Three.js) that travels with you between pages, smooth scrolling,
+light and dark themes, and no analytics, cookies or third-party requests.
 
 Preview: <https://debojyoti17.github.io/portfolio-v2/>
 
@@ -23,6 +23,8 @@ npm run preview    # serve the built site
 npm run check      # type-check
 npm run links      # check every internal link in dist/
 npm run contrast   # check the colour tokens against WCAG AA
+node scripts/interact.mjs     # browser smoke tests (needs `npm run preview` running)
+node scripts/perf-morph.mjs   # phone emulation: frame timing while the field morphs between pages
 ```
 
 ## The one file you edit most: `site.config.ts`
@@ -46,18 +48,32 @@ focus lines, the navigation, **feature flags** and the **order of homepage secti
   in `interests` in `site.config.ts`. Projects without an area appear under "More work".
 * **`tags`**: at most two, from the controlled list at the top of `src/content.config.ts` (add a name there
   first when you need a new tag).
-* **`visual`** chooses the interactive visual on the card and the project page: `leaf`, `ghost`, `graph`,
-  `network` or `tree`. If omitted, one is picked from the file name.
+* **`visual`** chooses the project's form in the site's particle field (shown on its page, and as a still
+  on the Work page): `leaf`, `ghost`, `graph`, `network` or `tree`. If omitted, one is picked from the file name.
 * The project line under each title is built from `type` and `stage`: "Research project · In progress".
-* Optional fields (`links.github`, `links.paper`, `links.demo`, `role`, `cover`, `facts`) show up only
-  when you fill them in. `featured: true` puts the project on the home page; `order` sorts (lower first).
+* Optional fields (`links.*`, `role`, `cover`, `facts`) show up only when you fill them in. `featured: true`
+  puts the project on the home page; `order` sorts (lower first).
+
+### Link a project's code, paper or demo
+
+Add a `links` block to the project's front matter. Each link appears — on the home page, the Work page and the
+project page — only when it is filled in; there is no placeholder when it is missing.
+
+```yaml
+links:
+  github: https://github.com/Debojyoti17/leafscope   # shown as "Code" with the GitHub mark
+  paper: https://example.com/leafscope.pdf            # shown as "Paper"
+  demo: https://leafscope.example.com                 # shown as "Demo"
+  other:                                              # optional extra links
+    - { label: Slides, url: https://example.com/slides }
+```
 
 **Cover image:** put the file in `src/assets/projects/` and set
 `cover: ../../assets/projects/my-project.jpg` and `coverAlt: "describe it"`. On the Work page the cover
-replaces the interactive visual on that project's card.
+replaces the still of the project's field.
 
-**Research areas:** edit `interests` in `site.config.ts` (a title and one sentence each). They head the
-groups on the Work page and the three columns of "What I work on" on the home page.
+**Research areas:** edit `interests` in `site.config.ts` (a title and one sentence each). Each area is a
+heading in "Research & projects" (home page and Work page) with its projects listed underneath.
 
 ## Add a note (blog post)
 
@@ -95,12 +111,8 @@ No other change is needed.
    the markup in `{condition && (…)}` so the section disappears when it has nothing to show.
 2. Add `'awards'` to `homeSections` in `site.config.ts` (the id is the lower-case file name).
 
-Optional attributes on the `<section>`:
-
-| Attribute | Meaning |
-| --- | --- |
-| `data-numbered` | gets the next index number (`03`) in its header |
-| `data-label="Awards"` | a name for the section |
+Give the `<section>` an `id` and `aria-labelledby`, and add `data-reveal` to the blocks that should rise into
+view (the site's single entrance animation). Use `SectionHead` for the label + title + hairline header.
 
 ## Switch modules on and off
 
@@ -112,15 +124,15 @@ export const features = {
   publications: false, // publications list
   timeline: false,     // resume timeline
   githubGraph: false,  // GitHub contribution graph, fetched at build time (hides itself on failure)
-  contactForm: false,  // contact form (see below)
+  contactForm: false,  // contact form in the footer's contact block (see below)
   workFilters: false,  // topic / type / stage filters on /work/ (for when there are many projects)
 };
 ```
 
 A module appears only when its flag is on **and** it has content. Nothing says “coming soon”.
 
-**Work filters:** with `workFilters: true` the Work page becomes one filterable grid (topic, type, stage chips)
-and the grouping by research area is replaced. Leave it off while there are only a few projects.
+**Work filters:** with `workFilters: true` the Work page becomes one filterable list (topic, type, stage)
+instead of the grouping by research area. Leave it off while there are only a few projects.
 
 **Contact form:** with the flag on and `contactForm.action` empty, the form opens the visitor’s mail
 app. To use a form service (Formspree, Basin, …), paste its endpoint into `contactForm.action`.
@@ -160,7 +172,7 @@ src/components/           shared UI (Nav, Footer, Icon, …)
 src/pages/                routes (home, work, about, notes, 404, og images, robots)
 src/styles/               tokens.css (design tokens) + plain CSS
 src/scripts/              client code: ui, motion (Lenis + GSAP), stage (Three.js)
-src/scripts/stage/       particle engine (stage.ts), scenes and what touching them does (scenes.ts, behaviours.ts)
+src/scripts/stage/       the one persistent particle field (stage.ts), its scenes and what touching them does
 src/assets/fonts, icons   self-hosted fonts and SVG icons, with licences
 public/                   cv.pdf, images/profile.jpg, favicon
 scripts/                  screenshots, Lighthouse, link and contrast checks

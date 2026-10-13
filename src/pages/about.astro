@@ -54,10 +54,11 @@ const pubs = await getPublications();
             </div>
           )}
 
-          <p class="about__actions" data-reveal>
-            <a class="link action" href={`mailto:${siteConfig.email}`}>Email<Icon name="arrow_outward" /></a>
-            {hasCV && <a class="link action" href={href(siteConfig.files.cv)} download>CV<Icon name="download" /></a>}
-          </p>
+          {hasCV && (
+            <p class="about__actions" data-reveal>
+              <a class="link action" href={href(siteConfig.files.cv)} download>Download CV<Icon name="download" /></a>
+            </p>
+          )}
         </div>
       </div>
     </div>

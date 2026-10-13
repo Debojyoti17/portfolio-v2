@@ -14,9 +14,9 @@ future edits stay coherent. Where I had to choose without being able to ask, the
 
 | Reference | What is worth learning | How it shows up here |
 | --- | --- | --- |
-| **apple.com** | One idea per screen. Type is the image. Huge, tightly tracked headlines with very quiet supporting copy. Scroll is the narrative device: things change *because* you scrolled, not because a timer fired. | The name is set at display size. The research-focus section is a pinned, scroll-scrubbed sequence: three lines, one active at a time. Whitespace is a feature; sections are tall. |
-| **Nothing (intl.nothing.tech)** | Monochrome with a single red accent used as a *signal*, not decoration. A dot-matrix display face for numerals and labels. Technical micro-labels, visible grids, "industrial" honesty (it shows its construction). | Near-black/off-white palette with one red. Doto (OFL dot-matrix) for numerals, status tags and the wordmark. Mono micro-labels, hairline grid, registration marks. Red appears only on: the active state, the status dot, the 3D accent particles and the focus ring. |
-| **product.inc** | Information architecture of a personal site that is *used*: selected work, experiments, notes, a resume timeline, a contribution graph, strong nav and a footer that works as a sitemap. Each block has a clear job and a consistent header pattern. | One section-header pattern (index, label, title, rule). Every module in the brief exists as an optional section behind a flag. The footer repeats navigation, contact and colophon. |
+| **apple.com** | One idea per screen. Type is the image. Huge, tightly tracked headlines with very quiet supporting copy. Scroll is the narrative device: things change *because* you scrolled, not because a timer fired. | The name is set at display size beside one live field. Whitespace is a feature; one idea per block. |
+| **Nothing (intl.nothing.tech)** | Monochrome with a single red accent used as a *signal*, not decoration. A dot-matrix display face for numerals and labels. Technical micro-labels, visible grids, "industrial" honesty (it shows its construction). | Near-black/off-white palette with one red. Doto (OFL dot-matrix) for the DBM wordmark only. Mono micro-labels and hairline rules. Red appears **only inside the interaction**: accent particles in the field, a failed node or broken link that the field is about, and the keyboard focus ring. No static red decoration anywhere. |
+| **product.inc** | Information architecture of a personal site that is *used*: selected work, experiments, notes, a resume timeline, a contribution graph, strong nav and a footer that works as a sitemap. Each block has a clear job and a consistent header pattern. | One section-header pattern (label, title, rule). Research areas carry their projects, on home and on /work/ alike. Every module exists as an optional section behind a flag. The footer opens with contact and works as a sitemap. |
 | **Streamline "sharp" sets** | Crisp geometric icons on a precise grid; square terminals; no softness. | Icons come from Material Symbols *Sharp* (Apache-2.0), drawn at 24px grid with a light weight, always paired with a text label. Radius is 0 everywhere in the UI. |
 
 Anti-lessons (AI-site tells deliberately avoided): gradient blobs, glassmorphism, purple/blue
@@ -28,15 +28,14 @@ stock illustrations, invented statistics, skill bars.
 ## 2. Direction: "research instrument"
 
 The site behaves like a measuring instrument that has been pointed at one person's work: a calm
-monochrome field, a hairline grid, readouts in a dot-matrix display, and a single red signal lamp.
+monochrome page, hairline rules, and one live particle field that reacts to touch.
 Authority comes from precision and restraint, not decoration.
 
 * **Voice:** confident, precise, quiet, technical. Sentences are short and factual. No superlatives.
-* **Shape language:** right angles only. 1px rules. Registration marks (`+`) where rules cross.
-* **Annotations (with restraint):** index numbers on sections, status tags on projects, coordinates
-  of Vellore in the footer, status lines on projects. Only *true* values are shown (no fabricated metrics).
-* **Content honesty:** nothing is invented. Any figure shown is either supplied by the owner or is a
-  property of the page itself (e.g. the number of particles being drawn).
+* **Shape language:** right angles only. 1px rules. No ornaments (no registration marks, no decorative dots).
+* **Annotations (with restraint):** one quiet type · stage line per project, the coordinates and local time
+  of Vellore in the footer. No index numbers anywhere. Only *true* values are shown (no fabricated metrics).
+* **Content honesty:** nothing is invented. Any figure shown is supplied by the owner.
 
 ---
 
@@ -55,8 +54,8 @@ The visitor's explicit choice is stored in `localStorage` only (no cookies).
 | `--muted` | `#5A5A55` | `#9C9B95` | labels, metadata |
 | `--rule` | `fg @ 16%` | `fg @ 16%` | hairlines |
 | `--rule-strong` | `fg @ 45%` | `fg @ 45%` | borders on controls |
-| `--accent` | `#E4161F` | `#FF4638` | shapes, 3D accent particles |
-| `--accent-text` | `#C40E18` | `#FF5D50` | red used as text/focus (AA on `--bg`) |
+| `--accent` | `#E4161F` | `#FF4638` | accent particles and meaningful states inside the field |
+| `--accent-text` | `#C40E18` | `#FF5D50` | keyboard focus ring (AA on `--bg`) |
 
 `npm run contrast` checks every text/background pair in both themes against WCAG AA (4.5:1 body,
 3:1 large/UI) and fails the build script if one drops below.
@@ -67,14 +66,14 @@ The visitor's explicit choice is stored in `localStorage` only (no cookies).
 
 | Role | Family | Licence | Files |
 | --- | --- | --- | --- |
-| Display (numerals, tags, wordmark, readouts) | **Doto** (variable, `wght`) by Oliver Lalan — a dot-matrix face; used as an open alternative to Nothing's proprietary dot font | SIL OFL 1.1 | `Doto-var.woff2` |
+| Wordmark only ("DBM" in the header and footer) | **Doto** (variable, `wght`) by Oliver Lalan — a dot-matrix face; used as an open alternative to Nothing's proprietary dot font | SIL OFL 1.1 | `Doto-var.woff2` |
 | Headings + body | **Instrument Sans** (variable, `wght`) | SIL OFL 1.1 | `InstrumentSans-var.woff2` |
 | Metadata, code, labels | **IBM Plex Mono** 400 / 500 | SIL OFL 1.1 | `IBMPlexMono-400/500.woff2` |
 
 Latin subsets only (≈ 66 KB total). Files live in `src/assets/fonts/` with licence texts in
 `src/assets/fonts/licenses/`. Two are preloaded (Instrument Sans, Plex Mono 400). `font-display: swap`
-with a metric-matched fallback to avoid layout shift. Doto is never set below 14px (the dots stop
-reading); small labels use Plex Mono.
+with a metric-matched fallback to avoid layout shift. Numbers are never set in Doto (the dots render
+faint on phones); small labels use Plex Mono.
 
 ## 5. Type scale (fluid, `clamp()`, ratio ≈ 1.25 at the low end opening to 1.4 at the high end)
 
@@ -87,38 +86,39 @@ reading); small labels use Plex Mono.
 | `--t-h3` | 22–32px | row titles |
 | `--t-h2` | 36–88px / 0.98, tracking −0.035em | section titles |
 | `--t-h1` | 52–240px / 0.86, tracking −0.05em | name / page titles |
-| `--t-dot` | 14–120px Doto | indices, status tags |
 
 ## 6. Grid and spacing
 
 * 12 columns, gutter `clamp(12px, 1.6vw, 24px)`, page margin `clamp(16px, 4vw, 56px)`, content
   max-width 1760px (so 2560px screens do not stretch lines of text).
-* Faint vertical column guides (4 lines) are drawn on ≥ 900px as a fixed background — the "graph
-  paper" of the instrument. Content sits on them.
+* Structure is carried by type size, weight, spacing and 1px rules alone (the background column guides
+  were removed in review round 2: they did not line up with the content columns).
 * Spacing scale: 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 144 · 224 (fluid between breakpoints).
   Sections are separated by `--space-section` (96–224px), headers by a 1px rule.
 * Breakpoints: 640 / 900 / 1280 (content-driven; layouts are fluid between them). Verified from 360px
   to 2560px with no horizontal scroll.
 
-## 7. Motion principles
+## 7. Motion grammar (one system, applied everywhere)
 
-* **Purposeful and rare.** Each effect has one job; not everything fades up.
-* **Durations:** micro 150ms (hover/press), UI 300ms (menus, theme), reveals 800–1100ms, page
-  transition 450ms out / 700ms in.
-* **Easings:** `--ease-out: cubic-bezier(.16,1,.3,1)` (expo-out feel) for entrances;
-  `--ease-in-out: cubic-bezier(.76,0,.24,1)` for wipes; no bounce, no overshoot.
-* **Vocabulary:**
-  1. *Line-mask rise* for display headings (text slides up inside an overflow mask).
-  2. *Rule draw* — hairlines scale in from the left.
-  3. *Wipe* — project rows enter with a clip-path wipe, staggered by index.
-  4. *Spring* — the particle fields respond to cursor and finger with spring physics (see §8).
-* **Smooth scroll:** Lenis (≈1.1s glide), disabled on touch devices' native momentum where it hurts,
-  and entirely under reduced motion.
-* **Page transitions:** Astro View Transitions. Nav and the theme toggle persist; the page body
-  exits with a short fade/lift and the next page enters with a bottom-up wipe.
-* **`prefers-reduced-motion`:** no smooth scroll, no scroll-linked animation, no transitions, no
-  WebGL animation. Content is simply there. The particle field is replaced by a static SVG render
-  of the same data.
+Defined after review round 2, when motion felt jumbled. Every rule below is implemented once in
+`src/styles/ui.css` / `src/scripts/motion.ts` and reused; `scripts/interact.mjs` checks it.
+
+| Element | The one behaviour | Timing |
+| --- | --- | --- |
+| **Entrance** (on load, on scroll, mobile menu items) | content rises 16px while fading in. Nothing wipes, slides sideways, scales or splits into words | 0.9s, `cubic-bezier(.16,1,.3,1)`, 70ms stagger within a group |
+| **Hover / focus** (every link, action, nav item, icon control, pager) | a 1px underline draws in from the left; arrows nudge 3px in their own direction. No fills, no colour changes, no shifts of the text | 0.3s, same easing |
+| **Press** | the label dims to 60% | 0.15s |
+| **Page transition** | the old page fades out, the new page fades in and its content rises with the entrance above | 0.25s out / 0.35s in |
+| **The field** | particles spring back to their form; a finger parts them, a tap ripples; between pages the field glides to its new place and flows into the new form | springs ≈ 0.3–0.6s settle; morph 1.1s per particle, staggered over 0.6s; glide 0.9s |
+
+* **Removed** because they had no job of their own: line-mask title reveals, word splitting, rule draws,
+  clip-path wipes, the scroll-scrubbed focus list, the scroll/section readout, blinking status lamp,
+  row hover fills and title shifts, button fills, image zooms, GSAP + ScrollTrigger (the entrance is now
+  an IntersectionObserver plus one CSS transition).
+* **Kept:** Lenis smooth wheel scrolling on desktop (native on touch), and the header that slides away
+  while you scroll down and returns when you scroll up (it frees the screen on phones).
+* **`prefers-reduced-motion`:** no smooth scroll, no entrances, no page transitions, no live field (its
+  static SVG render is shown instead). Content is simply there.
 
 ## 8. The 3D signature element — three concepts
 
@@ -139,9 +139,9 @@ a whole page.
 **C. "Seismograph field".** A heightfield of points whose amplitude follows scroll velocity and cursor
 energy. Elegant and cheap, but abstract; it has no link to Gaussian splatting.
 
-**Decision: A**, then simplified after testing on a real phone (review round 1): the field no longer
-travels down the page behind the text. It lives only where it can be looked at — inside the hero, on each
-project's card and on its page — and every use is properly interactive instead of decorative.
+**Decision: A**, simplified twice after testing on a real phone. Round 1: the field no longer travels down
+the page behind the text. Round 2: there is now **one** field for the whole site — a single persistent
+canvas that is carried across page transitions and takes the form of whatever page you are on.
 
 **Interaction model** (`src/scripts/stage/stage.ts`):
 * A small CPU spring-physics engine (a few thousand particles) writes positions into a GPU point cloud.
@@ -153,16 +153,25 @@ project's card and on its page — and every use is properly interactive instead
   (touchmove keeps firing while the page scrolls, so the field keeps reacting), containers declare
   `touch-action: pan-y`, and `overscroll-behavior-x: none` stops a sideways drag from triggering
   browser history swipes. Mouse and pen use pointer events.
-* At most 4 WebGL contexts exist (a renderer pool lends canvases to whichever stages are on screen);
-  stages mount when they approach the viewport and pause when they leave it or the tab is hidden.
-* Budget: hero 12,000 / 5,500 particles, cards 5,200 / 3,400, project page 8,500 / 4,500 (desktop /
-  phone); DPR capped at 1.75 / 1.5; half frame-rate when idle. Measured on an emulated phone with 4×
-  CPU throttle: ≈ 3.5–5 ms of JS per frame (budget 16.7 ms).
+* **One field, many slots.** Pages that show the field contain a slot (`[data-field-slot]`): the home hero,
+  each project page, the 404 page. On every Astro view transition the same canvas (one WebGL context) is
+  moved into the new page's slot before the new page is captured; its particles then flow from the form
+  they last held into the new page's form (per-particle staggered morph with a slight lift toward the
+  viewer). If the old slot was on screen, the slot itself glides to its new position (a shared
+  view-transition element); if not, the field fades in where it belongs. Pages without a slot (Work,
+  About) park it, and it remembers its form for the next page that needs it. The first appearance flows
+  in from uninitialised noise. Scenes are prebuilt in idle time so navigations do not build them.
+* The Work page shows a **still** of each project's form (rendered at build time from the same scene
+  data) that links to the project page, where the form comes alive — so there is never more than one
+  live field, and a still is never mistaken for an interactive one.
+* Budget: 10,000 particles on desktop, 5,000 on phones; DPR capped at 1.75 / 1.5; half frame-rate when
+  idle; paused off-screen and when the tab is hidden. Measured on an emulated phone with 4× CPU throttle:
+  ≈ 4 ms of JS per frame (budget 16.7 ms); attaching the field to a new page costs 1–18 ms.
 * Phones start the live field on first touch or scroll (or after 9 s); until then the identical
   server-rendered SVG is shown. Reduced motion and missing WebGL keep the SVG.
 
-**Scenes** (`scenes.ts` builds them, `behaviours.ts` gives them meaning). One scene per project, used on
-its card and its page:
+**Scenes** (`scenes.ts` builds them, `behaviours.ts` gives them meaning). One scene per project, live on its
+page and shown as a still on /work/:
 
 | Scene | Used for | What touching does |
 | --- | --- | --- |
@@ -174,15 +183,16 @@ its card and its page:
 | `tree` | Agentic Shell | broken symlinks dangle in red; touching one reconnects it (it slowly breaks again) |
 | `noise` | 404 | the field never converges |
 
-The same generators produce the static SVG fallback, so it always matches the live scene. Captions are
-uniform: project name on one side, a device-aware hint on the other ("Drag across the field" on touch,
-"Move the cursor across the field" with a mouse).
+The same generators produce the static SVG fallback and the Work-page stills, so they always match the live
+scene. Every field carries the same caption: the project name (when there is one) and a device-aware hint
+("Drag across the field" on touch, "Move the cursor across the field" with a mouse). Every scene responds
+the same way (particles part and spring back); a project's scene adds at most one behaviour of its own.
 
 ## 9. Page map
 
 ```
 /                    Home (config-ordered sections)
-/work/               Project index, grouped under the three research areas (filters are an optional module)
+/work/               Research & projects: areas with their projects, each with a still of its field
 /work/<slug>/        Project detail (one per Markdown file)
 /about/              Bio, education, interests, skills, [timeline], [publications]
 /notes/              Notes index           (exists only when notes are enabled AND ≥ 1 post)
@@ -194,16 +204,17 @@ uniform: project name on one side, a device-aware hint on the other ("Drag acros
 
 ## 10. Homepage sections, in order (`site.config.ts → homeSections`)
 
-1. `hero` — name at display size, one status line, two buttons; the interactive field lives inside it.
-2. `focus` — "What I work on": the three research areas, each with a sentence and links to its projects.
-3. `work` — all featured projects as an index list.
-4. `about` — short bio and education (a portrait appears beside the text once `public/images/profile.jpg`
+1. `hero` — the field, the name, one status line, two actions ("Research & projects", "Contact").
+2. `research` — "Research & projects": each research area is a heading with one sentence and its projects
+   directly underneath (type · stage line, title, summary, Code / Paper / Demo links when set). A project
+   appears once. The Work page uses the same structure and adds a still of each project's field.
+3. `about` — short bio and education (a portrait appears beside the text once `public/images/profile.jpg`
    exists).
-5. `stack` — skills as a specification sheet.
-6. `timeline` / `publications` / `notes` / `github` — optional (flag + content).
-7. `contact` — heading, large mailto link with a copy button, GitHub (and other filled social links), optional form.
+4. `stack` — skills as a specification sheet.
+5. `timeline` / `publications` / `notes` / `github` — optional (flag + content).
 
-No particles appear behind body text anywhere.
+**Contact** is no longer a section: it opens the footer on every page (a short heading, the email as a
+large mailto link, GitHub), followed by the footer's link lists.
 
 Adding a section = create `src/sections/<Name>.astro` and add `'<name>'` to `homeSections`.
 
@@ -229,7 +240,7 @@ Adding a section = create `src/sections/<Name>.astro` and add `'<name>'` to `hom
 | `publications` | off | home + about section |
 | `timeline` | off | about + home section |
 | `githubGraph` | off | build-time contribution graph |
-| `contactForm` | off | form in contact section |
+| `contactForm` | off | form in the footer's contact block |
 | `workFilters` | off | topic / type / stage filters on /work/ (replaces the grouped layout with a filterable grid; for when there are many projects) |
 
 A module renders only when **flag on AND content exists**. Optional front-matter fields render only
@@ -265,12 +276,14 @@ graph is fetched at **build time** only.
 
 ## 15. Deviations and additions made during the build
 
-* **Review round 1 (real Android phone):** see REVIEW.md for the full list. In short: the field is
-  contained (hero, cards, project pages), touch uses spring physics with passive listeners, each project
-  has its own interactive scene, the Work page is grouped by research area, the scroll readout and the
-  index card were removed.
+* **Review round 2 (real Android phone):** one persistent field morphing between pages; "What I work on"
+  and the project list merged into "Research & projects" (same structure on /work/); contact folded into
+  the top of the footer; every decorative red dot/square, all index numbering, the "Portfolio" label and
+  the column guides removed; one motion grammar (§7). See REVIEW.md.
+* **Review round 1:** the field contained to where it can be looked at; spring-physics touch with passive
+  listeners; one interactive scene per project; the Work page grouped by research area.
 * **Phones:** the live field starts on first touch/scroll (or after 9 s); the identical SVG render is shown
   until then. Desktop starts it when the browser is idle.
-* **Section index numbers** are CSS counters (`data-numbered`), so hiding a section renumbers the rest.
 * **404** uses the `noise` scene: the field never converges.
-* **Contrast:** lowest measured pair is red text on the panel colour in light mode (4.82 : 1).
+* **Contrast:** lowest measured pair is red text on the panel colour in light mode (4.82 : 1); red text is
+  now used only for the focus ring.

@@ -5,7 +5,146 @@ day-to-day instructions are in [README.md](README.md).
 
 ---
 
-## Review round 1 — feedback from a real Android phone (this update)
+## Review round 2: one coherent experience (this update)
+
+**Theme:** the site should feel like one intentional interactive experience, not a collection of separate
+ideas. The guiding rule was to remove more than to add.
+
+### What was removed
+* **Static red:** the red square in the header and footer marks, the status dots and the red index numbers
+  are all gone. Red now appears only inside the interaction: the field's accent particles, the failed
+  node and broken links the field is about, and the keyboard focus ring. On the Work-page stills, red is
+  kept only where it means something (network and tree).
+* **Numbering:** section indices (01, 02 …), menu numbers and the numbered timeline dates are gone. The
+  "Portfolio" label above the name is gone too.
+* **Other leftovers:**
+  * the background column guides;
+  * the "What I work on" section, merged into the project list below;
+  * the separate Contact section, now in the footer;
+  * the copy-email button;
+  * the duplicate GitHub link in the footer.
+* **Motion without a job:**
+  * line-mask title reveals and word splitting;
+  * rule-draw and clip-path wipes;
+  * row hover fills, title shifts, button fills and image zooms;
+  * GSAP and ScrollTrigger, which are no longer a dependency.
+
+### 1. Research & projects (one section)
+Each research area is a heading with its one sentence, and its projects sit directly underneath. Every
+project shows:
+* its type · stage line;
+* its title, which links to the project page;
+* its summary;
+* Code / Paper / Demo links, when they are set.
+
+Each project appears once. `/work/` uses the same structure (`src/components/ResearchIndex.astro`) and adds
+a still of each project's field. The still links to the project page, where the field comes alive.
+
+### 2. Code / Paper / Demo links per project
+Set `links.github`, `links.paper` or `links.demo` in a project's front matter. A quiet mono link appears with
+an icon on the home entry, the Work entry and the project page; nothing appears when the field is absent.
+The README has a copy-paste example. This was verified with a temporary GitHub link on LeafScope:
+* screenshots at 1440 px (light) and 390 px (dark) on all three places;
+* the link was then removed, and `leafscope.md` is unchanged in git.
+
+**Waiting on you:** the real URLs.
+
+### 3. Contact
+The footer now opens with the contact block on every page:
+* a small "Contact" heading;
+* the email, large, as a mailto link;
+* GitHub as a second link.
+
+There is no copy button and no tagline. The footer's link lists (Index, Projects, Elsewhere) follow, then
+the wordmark. The hero's "Contact" button jumps to this block.
+
+### 4. One motion grammar (written down in DESIGN.md §7)
+* **Entrance:** everything that appears rises 16 px while fading in. This covers on-load text, content
+  revealed on scroll and menu items. It runs for 0.9 s with the same easing and a 70 ms stagger.
+* **Hover / focus:** every link, action, nav item and icon control draws a 1 px underline from the left
+  (0.3 s). Arrows nudge 3 px in their own direction. Press dims the label. Nothing else moves.
+* **Hint:** every field has the same caption, the project name plus "Move the cursor across the field" or
+  "Drag across the field" on touch, and every field responds the same way: the particles part and spring
+  back.
+* **One persistent field across pages.** There is now a single WebGL canvas for the whole site:
+  * **Navigation:** the canvas is carried into the next page's slot. Its particles flow from the form they
+    held into the new page's form (home landscape → leaf → back to the landscape, and so on).
+  * **Glide:** if the field was on screen, it glides to its new place during the view transition; if not,
+    it fades in where it belongs.
+  * **Pages without a field:** Work and About park it. It keeps its last form.
+  * **First appearance:** the field flows in from noise.
+  * **Fallback:** where view transitions are not supported, the page cross-fades and the morph still runs.
+
+### 5. Phone hero
+The field, name, status line and buttons now read as one block. The field is a 2:1 band capped at 40% of the
+screen height, with the form lifted slightly toward the name. The gap between field and name is 37 px; at
+390 × 844 the buttons end at 542 px. "Third-year B.Tech CSE · VIT Vellore" stays, in the secondary text
+colour (AA contrast in both themes).
+
+### Checks after this round
+**Cross-page morph test** (`node scripts/perf-morph.mjs`): Playwright with Chromium, Pixel 5 emulation, touch,
+4× CPU throttle and software WebGL. The test navigates home → project → home → Work → project → next
+project and records every frame.
+
+| Navigation | Frames | p50 | p95 | Frames > 33 ms | Long tasks | Field attach |
+| --- | --- | --- | --- | --- | --- | --- |
+| home → LeafScope | 174 | 16.7 ms | 33.3 ms | 4 | 1 (153 ms) | 2.2 ms |
+| LeafScope → home (glide) | 146 | 16.7 ms | 33.4 ms | 6 | 1 (54 ms) | 0.7 ms |
+| home → Work (field parks) | 143 | 16.7 ms | 33.4 ms | 7 | 1 (57 ms) | — |
+| Work → Ghosts in the Splat | 123 | 16.7 ms | 33.4 ms | 5 | 1 (211 ms) | 4.8 ms |
+| Ghosts → next project | 167 | 16.7 ms | 33.4 ms | 9 | 0 | 4.1 ms |
+
+* **Canvas carried across:** the same canvas element was carried across every navigation, and the new form
+  was morphing 0.3 s after each one.
+* **Field cost:** about 4.8 ms of JS per frame on average (p95 7.9 ms, budget 16.7 ms).
+* **Long tasks:** the one long task per navigation is Astro swapping the page DOM, not the field.
+* **Scrolling:** a drag over the field after all those navigations still scrolled the page (235 px).
+
+**Lighthouse** (mobile preset):
+
+| Page | Performance | Accessibility | Best practices | SEO |
+| --- | --- | --- | --- | --- |
+| Home | 100 | 100 | 100 | 100 |
+| Work | 99 | 100 | 100 | 100 |
+| LeafScope | 100 | 100 | 100 | 100 |
+| Ghosts in the Splat | 100 | 100 | 100 | 100 |
+| About | 100 | 100 | 100 | 100 |
+
+LCP is 1.7–1.8 s, TBT 0 ms and CLS ≤ 0.001 on every page.
+
+**Other checks:**
+* `astro check` reports 0 errors.
+* The link checker found 0 broken links.
+* `scripts/interact.mjs` passes all 29 browser checks. New ones cover:
+  * no static red and no index numbering on four pages;
+  * one hover and one entrance rule site-wide;
+  * the same canvas surviving home → project → home → Work → project;
+  * the phone hero block and touch behaviour;
+  * reduced motion and no WebGL.
+
+**Screenshots** (two critique rounds): Home, Work, LeafScope, Ghosts, About and the footer at 390 px in light
+and dark, and at 1440 px.
+* **Round 1 fixed:**
+  * a dead band under the phone hero field;
+  * an oversized Work title;
+  * the duplicate GitHub link in the footer;
+  * random red accents in the Work stills;
+  * cramped pager arrows.
+* **Round 2:** no leftover decoration found.
+
+### Limitations of this round
+* **No real device:** the numbers come from emulation with a software GPU. On a real phone the p95 should be
+  lower, because the GPU does the drawing that SwiftShader does on the CPU here. The DOM swap long task
+  (54–211 ms at 4× throttle) happens on every navigation regardless of the field.
+* **Glide timing:** the field glides only when it is on screen as you leave the page. Navigating from the
+  footer (field scrolled away) makes it fade in at its new place instead, which avoids a long diagonal
+  flight across the page.
+* **Browser support:** browsers without view-transition support get Astro's cross-fade fallback instead of
+  the glide. The particle morph itself works everywhere WebGL does.
+
+---
+
+## Review round 1 — feedback from a real Android phone
 
 **What was wrong:** the particle visuals looked good in stills but felt poorly executed in use — touch was
 broken or jerky, labels were confusing, and the visuals were inconsistent between projects. The approach

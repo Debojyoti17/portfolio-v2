@@ -10,7 +10,9 @@ export interface StaticField {
 
 const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
-export function buildStaticField(scene: SceneName, count = 1100): StaticField {
+/** `semanticRedOnly`: draw red only where it means something (a failed node, a broken link). */
+export function buildStaticField(scene: SceneName, count = 1100, semanticRedOnly = false): StaticField {
+  const semantic = scene === 'network' || scene === 'tree';
   const d = buildScene(scene, count);
   let far = '', near = '', accent = '';
   const { yaw, pitch } = d.view;
@@ -24,7 +26,7 @@ export function buildStaticField(scene: SceneName, count = 1100): StaticField {
     const y = y0 * cp - z * sp;
     const depth = y0 * sp + z * cp;
     const seg = `M${f2(x)} ${f2(-y)}h0`;
-    if (d.look0[i * 4 + 2] > 0.5) accent += seg;
+    if (d.look0[i * 4 + 2] > 0.5 && (!semanticRedOnly || semantic)) accent += seg;
     else if (depth > -0.4 && alpha > 0.5) near += seg;
     else far += seg;
   }
