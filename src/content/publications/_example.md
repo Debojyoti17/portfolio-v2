@@ -7,7 +7,7 @@ venue: Venue or journal name
 year: 2026
 # status: Under review
 links:
-  # paper: https://arxiv.org/abs/0000.00000
+  # paper: https://example.com/paper.pdf
   # code: https://github.com/Debojyoti17/repo
   # doi: https://doi.org/...
 ---

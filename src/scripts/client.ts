@@ -55,7 +55,7 @@ function boot() {
         if (fired) return;
         fired = true;
         ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach((e) => window.removeEventListener(e, go));
-        idle(start, 1500);
+        setTimeout(start, 0);
       };
       ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach((e) => window.addEventListener(e, go, { passive: true, once: true }));
       window.setTimeout(go, 9000);

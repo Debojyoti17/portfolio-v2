@@ -5,8 +5,8 @@ import type { APIRoute, GetStaticPaths } from 'astro';
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
 import { siteConfig } from '@site';
-import { getProjects, projectForm } from '../../lib/content';
-import { generateForm, type FormName } from '../../scripts/stage/forms';
+import { getProjects, projectVisual, projectLine } from '../../lib/content';
+import { buildScene, type SceneName } from '../../scripts/stage/scenes';
 import { rng } from '../../lib/hash';
 
 const nm = (p: string) => fs.readFileSync(path.join(process.cwd(), 'node_modules', p));
@@ -20,19 +20,19 @@ interface Card {
   title: string;
   kicker: string;
   status?: string;
-  form: FormName;
+  scene: SceneName;
 }
 
 export const getStaticPaths = (async () => {
   const projects = await getProjects();
   const cards: Record<string, Card> = {
-    default: { title: siteConfig.name, kicker: 'Portfolio', form: 'scene' },
-    about: { title: 'About', kicker: siteConfig.name, form: 'leaf' },
-    work: { title: 'Work', kicker: siteConfig.name, form: 'graph' },
-    notes: { title: 'Notes', kicker: siteConfig.name, form: 'grid' },
+    default: { title: siteConfig.name, kicker: 'Portfolio', scene: 'scene' },
+    about: { title: 'About', kicker: siteConfig.name, scene: 'leaf' },
+    work: { title: 'Work', kicker: siteConfig.name, scene: 'graph' },
+    notes: { title: 'Notes', kicker: siteConfig.name, scene: 'noise' },
   };
   for (const p of projects) {
-    cards[`work-${p.id}`] = { title: p.data.title, kicker: 'Project', status: p.data.status, form: projectForm(p) };
+    cards[`work-${p.id}`] = { title: p.data.title, kicker: 'Project', status: projectLine(p), scene: projectVisual(p) };
   }
   return Object.entries(cards).map(([slug, card]) => ({ params: { slug }, props: { card } }));
 }) satisfies GetStaticPaths;
@@ -45,10 +45,12 @@ const h = (type: string, style: Record<string, unknown>, children?: unknown, ext
 export const GET: APIRoute = async ({ props }) => {
   const card = props.card as Card;
   // dot field on the right
-  const pts = generateForm(card.form, 700, false);
+  const sc = buildScene(card.scene, 900);
+  const pts = sc.home;
   const r = rng(5);
   const dots: unknown[] = [];
-  for (let i = 0; i < 700; i++) {
+  for (let i = 0; i < 900; i++) {
+    if (sc.look0[i * 4] < 0.12) continue;
     const x = pts[i * 3] * 0.98 + pts[i * 3 + 2] * 0.3;
     const y = -pts[i * 3 + 1] + pts[i * 3 + 2] * 0.1;
     const accent = r() < 0.03;

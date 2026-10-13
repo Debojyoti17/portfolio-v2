@@ -2,46 +2,33 @@
 import { siteConfig } from '@site';
 import { href } from '../lib/url';
 import { hasProfile } from '../lib/site';
-import { getEducation, formatPeriod } from '../lib/content';
+import { getEducation } from '../lib/content';
 import SectionHead from '../components/SectionHead.astro';
 import Icon from '../components/Icon.astro';
 
 const edu = (await getEducation())[0];
 ---
 
-<section class="sec" id="about" aria-labelledby="about-title" data-section data-numbered data-label="About" data-form="scene" data-sx="0.3" data-so="0.3">
+<section class="sec" id="about" aria-labelledby="about-title" data-section data-numbered data-label="About">
   <div class="container">
     <SectionHead label="About" title="Student, researcher, builder" id="about-title" />
-    <div class="grid about__grid">
-      <figure class="plate marks" data-reveal="wipe">
-        {hasProfile ? (
-          <>
-            <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} loading="lazy" decoding="async" width="880" height="1100" />
-            <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
-          </>
-        ) : (
-          <div class="plate__card" aria-hidden="true">
-            <span class="plate__cross"></span>
-            <p class="label">Index card</p>
-            <p class="plate__mono">{siteConfig.initials}<span>.</span></p>
-            <p class="plate__meta label">
-              {edu && <span>{edu.data.org.replace(/\s*\(.*\)/, '')}</span>}
-              {edu && <span>{formatPeriod(edu.data)}</span>}
-              {siteConfig.place && <span>{siteConfig.place.label}</span>}
-            </p>
-          </div>
-        )}
-      </figure>
+    <div class={`grid about__grid${hasProfile ? '' : ' about__grid--text'}`}>
+      {hasProfile && (
+        <figure class="plate marks" data-reveal="wipe">
+          <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} loading="lazy" decoding="async" width="880" height="1100" />
+          <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
+        </figure>
+      )}
       <div class="about__text">
-        <div class="prose-lead">
-          {siteConfig.bio.map((p, i) => <p class={i === 0 ? 'lead' : 'prose'} style={i > 0 ? 'margin-top:1em;color:var(--fg-2)' : ''}>{p}</p>)}
+        <div class="about__bio">
+          {siteConfig.bio.map((p) => <p>{p}</p>)}
         </div>
         {edu && (
           <div class="about__edu" data-reveal="fade">
             <p class="label">Education</p>
-            <p class="about__years">{edu.data.start} – {edu.data.end}</p>
+            <p class="about__years">{edu.data.start} – {edu.data.end}{edu.data.endNote && <span class="about__note"> ({edu.data.endNote})</span>}</p>
             <p class="about__degree">{edu.data.title}</p>
-            <p class="tl__org">{edu.data.org}{edu.data.location ? `, ${edu.data.location}` : ''}{edu.data.endNote ? ` (${edu.data.endNote})` : ''}</p>
+            <p class="tl__org">{edu.data.org}{edu.data.location ? `, ${edu.data.location}` : ''}</p>
           </div>
         )}
         <p><a class="btn" href={href('/about/')}>More about me<Icon name="arrow_forward" /></a></p>

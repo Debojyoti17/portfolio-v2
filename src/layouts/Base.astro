@@ -22,8 +22,6 @@ interface Props {
   ogType?: 'website' | 'article';
   /** Force noindex for this page (e.g. 404). */
   noindex?: boolean;
-  /** Show the scroll/section readout. */
-  hud?: boolean;
   /** JSON-LD object to embed. */
   jsonLd?: Record<string, unknown>;
 }
@@ -33,7 +31,6 @@ const {
   ogImage = '/og/default.png',
   ogType = 'website',
   noindex = false,
-  hud = false,
   jsonLd,
 } = Astro.props;
 
@@ -94,20 +91,10 @@ const robots = __NOINDEX__ || noindex ? 'noindex, nofollow' : 'index, follow';
     <a class="skip" href="#main">Skip to content</a>
     <div class="guides" aria-hidden="true"><div class="container"><i></i><i></i><i></i><i></i></div></div>
     <Nav />
-    <slot name="stage" />
     <main id="main" tabindex="-1">
       <slot />
     </main>
     <Footer />
-    {hud && (
-      <div class="hud" aria-hidden="true" data-hud>
-        <div class="container hud__bar">
-          <span>Scroll<b data-hud-scroll>000</b></span>
-          <span class="hud__sec"><span data-hud-label>—</span><b data-hud-index>01</b></span>
-        </div>
-        <span class="hud__line" data-hud-line></span>
-      </div>
-    )}
     <script>
       import '../scripts/client';
     </script>

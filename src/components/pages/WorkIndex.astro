@@ -1,88 +1,75 @@
 ---
-import { href } from '../../lib/url';
-import { projectForm, countBy, type Project } from '../../lib/content';
-import StatusTag from '../StatusTag.astro';
-import StaticField from '../StaticField.astro';
-import { Image } from 'astro:assets';
-import Icon from '../Icon.astro';
+import { features, siteConfig } from '@site';
+import { countBy, type Project } from '../../lib/content';
+import ProjectCard from '../ProjectCard.astro';
 
 interface Props {
   projects: Project[];
 }
 const { projects } = Astro.props;
+
+// Grouped by research area (default). A project appears once, under its own area.
+const areas = siteConfig.interests
+  .map((i) => ({ title: i.title, note: i.note, projects: projects.filter((p) => p.data.area === i.title) }))
+  .filter((a) => a.projects.length > 0);
+const known = new Set(siteConfig.interests.map((i) => i.title));
+const rest = projects.filter((p) => !p.data.area || !known.has(p.data.area));
+const groups = [...areas, ...(rest.length ? [{ title: 'More work', note: '', projects: rest }] : [])];
+
+// Optional filter module (features.workFilters)
 const tags = countBy(projects, (p) => p.data.tags);
-const statuses = countBy(projects, (p) => [p.data.status]);
-const slots = ['a', 'b', 'c', 'd'];
+const types = countBy(projects, (p) => [p.data.type]);
+const stages = countBy(projects, (p) => (p.data.stage ? [p.data.stage] : []));
 const pad = (n: number) => String(n).padStart(2, '0');
 ---
 
 <header class="container page-head">
   <p class="label page-head__label appear">Work</p>
   <h1 class="page-head__title"><span class="rise"><span>Work</span></span></h1>
-  <p class="lead page-head__lead appear">Research and projects. Each one has its own page.</p>
+  <p class="lead page-head__lead appear">Research and projects, grouped by the area they belong to.</p>
 </header>
 
 <section class="container work-index" aria-label="Projects">
-  {(tags.length > 1 || statuses.length > 1) && (
-    <div class="filters" data-filters>
-      <div class="filters__bar">
-        {tags.length > 1 && (
-          <div class="filters__group" role="group" aria-labelledby="f-topic">
-            <p class="label" id="f-topic">Topic</p>
-            <div class="chips">
-              <button type="button" class="chip" aria-pressed="true" data-filter="tag" data-value="">All<span>{projects.length}</span></button>
-              {tags.map(([t, n]) => (
-                <button type="button" class="chip" aria-pressed="false" data-filter="tag" data-value={t}>{t}<span>{n}</span></button>
-              ))}
-            </div>
-          </div>
-        )}
-        {statuses.length > 1 && (
-          <div class="filters__group" role="group" aria-labelledby="f-status">
-            <p class="label" id="f-status">Status</p>
-            <div class="chips">
-              <button type="button" class="chip" aria-pressed="true" data-filter="status" data-value="">All<span>{projects.length}</span></button>
-              {statuses.map(([s, n]) => (
-                <button type="button" class="chip" aria-pressed="false" data-filter="status" data-value={s}>{s}<span>{n}</span></button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      <p class="label filters__count" role="status" aria-live="polite" data-filter-count>{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
-    </div>
-  )}
-
-  <ul class="plates" data-plates>
-    {projects.map((p, i) => (
-      <li
-        class="plates__item"
-        data-slot={slots[i % 4]}
-        data-tags={p.data.tags.join('|')}
-        data-status={p.data.status}
-        data-reveal="wipe"
-      >
-        <a class="pl" href={href(`/work/${p.id}/`)}>
-          <div class="pl__media marks">
-            {p.data.cover ? (
-              <Image src={p.data.cover} alt={p.data.coverAlt ?? ''} widths={[480, 800, 1200]} sizes="(min-width: 900px) 55vw, 100vw" class="pl__img" loading="lazy" />
-            ) : (
-              <StaticField form={projectForm(p)} count={900} class="pl__field" yaw={-0.5 + (i % 3) * 0.25} />
-            )}
-            <span class="pl__idx dot" aria-hidden="true">{pad(i + 1)}</span>
-          </div>
-          <div class="pl__meta">
-            <StatusTag status={p.data.status} />
-          </div>
-          <h2 class="pl__title">{p.data.title}</h2>
-          <p class="pl__sum">{p.data.summary}</p>
-          {p.data.tags.length > 0 && (
-            <ul class="tags" aria-label="Topics">
-              {p.data.tags.map((t) => <li class="tag">{t}</li>)}
-            </ul>
+  {features.workFilters ? (
+    <>
+      <div class="filters" data-filters>
+        <div class="filters__bar">
+          {[
+            ['tag', 'Topic', tags],
+            ['type', 'Type', types],
+            ['stage', 'Stage', stages],
+          ].map(([kind, label, list]: any) =>
+            list.length > 1 ? (
+              <div class="filters__group" role="group" aria-label={label}>
+                <p class="label">{label}</p>
+                <div class="chips">
+                  <button type="button" class="chip" aria-pressed="true" data-filter={kind} data-value="">All<span>{projects.length}</span></button>
+                  {list.map(([t, n]: [string, number]) => (
+                    <button type="button" class="chip" aria-pressed="false" data-filter={kind} data-value={t}>{t}<span>{n}</span></button>
+                  ))}
+                </div>
+              </div>
+            ) : null,
           )}
-        </a>
-      </li>
-    ))}
-  </ul>
+        </div>
+        <p class="label filters__count" role="status" aria-live="polite" data-filter-count>{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
+      </div>
+      <div class="wg__cards wg__cards--flat" data-plates>
+        {projects.map((p) => <ProjectCard project={p} />)}
+      </div>
+    </>
+  ) : (
+    groups.map((g, gi) => (
+      <section class="wg" aria-labelledby={`wg-${gi}`}>
+        <header class="wg__head">
+          <p class="wg__idx dot" aria-hidden="true">{pad(gi + 1)}</p>
+          <h2 class="wg__title" id={`wg-${gi}`}>{g.title}</h2>
+          {g.note && <p class="wg__note">{g.note}</p>}
+        </header>
+        <div class="wg__cards">
+          {g.projects.map((p) => <ProjectCard project={p} />)}
+        </div>
+      </section>
+    ))
+  )}
 </section>

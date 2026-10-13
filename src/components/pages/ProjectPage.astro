@@ -3,11 +3,10 @@ import { render } from 'astro:content';
 import { Image } from 'astro:assets';
 import { siteConfig } from '@site';
 import { href } from '../../lib/url';
-import { projectForm, type Project } from '../../lib/content';
-import { FORM_LABELS } from '../../scripts/stage/forms';
+import { projectVisual, projectLine, type Project } from '../../lib/content';
 import Base from '../../layouts/Base.astro';
 import Stage from '../Stage.astro';
-import StatusTag from '../StatusTag.astro';
+import ProjectLine from '../ProjectLine.astro';
 import Icon from '../Icon.astro';
 
 interface Props {
@@ -18,7 +17,7 @@ interface Props {
 const { project, projects, index } = Astro.props;
 const { Content } = await render(project);
 const d = project.data;
-const form = projectForm(project);
+const visual = projectVisual(project);
 const prev = projects[(index - 1 + projects.length) % projects.length];
 const next = projects[(index + 1) % projects.length];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -42,7 +41,7 @@ const facts = d.facts ?? [];
       <h1 class="project__title"><span class="rise"><span>{d.title}</span></span></h1>
       <div class="project__lede">
         <p class="lead">{d.summary}</p>
-        <p><StatusTag status={d.status} /></p>
+        <p><ProjectLine line={projectLine(project)} /></p>
       </div>
     </header>
 
@@ -50,9 +49,8 @@ const facts = d.facts ?? [];
       <div class="viewport marks" data-reveal="wipe">
         <i class="viewport__corner viewport__corner--tl"></i><i class="viewport__corner viewport__corner--tr"></i>
         <i class="viewport__corner viewport__corner--bl"></i><i class="viewport__corner viewport__corner--br"></i>
-        <p class="viewport__cap viewport__cap--top label" aria-hidden="true"><span>Form — {FORM_LABELS[form]}</span><span data-readout-count></span></p>
-        <Stage mode="inline" form={form} />
-        <p class="viewport__cap viewport__cap--bottom label" aria-hidden="true"><span>Move the cursor across the field</span><span>{d.title}</span></p>
+        <Stage mode="viewport" scene={visual} />
+        <p class="viewport__cap label" aria-hidden="true"><span>{d.title}</span><span data-hint>Move the cursor across the field</span></p>
       </div>
     </div>
 
@@ -60,16 +58,15 @@ const facts = d.facts ?? [];
       <div class="grid project__grid">
         <aside class="project__facts" aria-label="Project facts">
           <dl class="facts">
-            <div><dt class="label">Status</dt><dd>{d.status}</dd></div>
+            <div><dt class="label">Type</dt><dd>{d.type}</dd></div>
+            {d.stage && <div><dt class="label">Stage</dt><dd>{d.stage}</dd></div>}
             {d.role && <div><dt class="label">Role</dt><dd>{d.role}</dd></div>}
             {facts.map((f) => <div><dt class="label">{f.label}</dt><dd>{f.value}</dd></div>)}
             {d.tags.length > 0 && (
               <div>
                 <dt class="label">Topics</dt>
                 <dd>
-                  <ul class="tags">
-                    {d.tags.map((t) => <li><a class="tag tag--link" href={href(`/work/?tag=${encodeURIComponent(t)}`)}>{t}</a></li>)}
-                  </ul>
+                  <p class="quiet-tags label">{d.tags.join(' · ')}</p>
                 </dd>
               </div>
             )}

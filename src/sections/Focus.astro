@@ -3,54 +3,33 @@ import { siteConfig } from '@site';
 import { href } from '../lib/url';
 import { getProjects } from '../lib/content';
 import SectionHead from '../components/SectionHead.astro';
-import Icon from '../components/Icon.astro';
 
 const projects = await getProjects();
-const items = siteConfig.interests.map((i) => ({
+const areas = siteConfig.interests.map((i) => ({
   ...i,
-  count: projects.filter((p) => p.data.tags.includes(i.tag)).length,
+  projects: projects.filter((p) => p.data.area === i.title),
 }));
-const forms = ['scene', 'leaf', 'graph', 'erase', 'tree', 'grid'];
+const pad = (n: number) => String(n).padStart(2, '0');
 ---
 
-{items.length > 0 && (
-  <section class="sec focus" id="focus" aria-labelledby="focus-title" data-section data-numbered data-label="Research focus">
+{areas.length > 0 && (
+  <section class="sec" id="focus" aria-labelledby="focus-title" data-section data-numbered data-label="Research">
     <div class="container">
-      <div class="focus__track" style={`--n:${items.length}`} data-focus>
-        <div class="focus__sticky">
-          <SectionHead label="Research" title="What I work on" id="focus-title" compact />
-          <ol class="focus__list">
-            {items.map((it, i) => (
-              <li class="focus__item" data-focus-item>
-                <span class="label focus__idx" aria-hidden="true">{i + 1} / {items.length}</span>
-                <div class="focus__main">
-                  <h3 class="focus__line">{it.title}</h3>
-                  <div class="focus__body">
-                    <div>
-                      <p class="focus__note">{it.note}</p>
-                      {it.count > 0 && (
-                        <p class="focus__link">
-                          <a class="link label" href={href(`/work/?tag=${encodeURIComponent(it.tag)}`)}>
-                            {`${it.count} ${it.count === 1 ? 'project' : 'projects'}`}<Icon name="arrow_forward" />
-                          </a>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-        {items.map((_, i) => (
-          <div
-            class="focus__anchor"
-            style={`--i:${i}`}
-            data-form={forms[i % forms.length]}
-            data-sx="0.34"
-            data-so="0.55"
-            aria-hidden="true"
-          />
+      <SectionHead label="Research" title="What I work on" id="focus-title" />
+      <div class="areas">
+        {areas.map((a, i) => (
+          <article class="area" data-reveal="fade">
+            <p class="area__idx dot" aria-hidden="true">{pad(i + 1)}</p>
+            <h3 class="area__name">{a.title}</h3>
+            <p class="area__note">{a.note}</p>
+            {a.projects.length > 0 && (
+              <ul class="area__projects" aria-label={`${a.title} projects`}>
+                {a.projects.map((p) => (
+                  <li><a class="link" href={href(`/work/${p.id}/`)}>{p.data.title}</a></li>
+                ))}
+              </ul>
+            )}
+          </article>
         ))}
       </div>
     </div>

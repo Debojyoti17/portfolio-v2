@@ -1,11 +1,13 @@
 ---
 title: MAST framework extension
-status: arXiv preprint planned
+type: Research project
+stage: In progress
+area: Reliable multi-agent AI
 summary: Extending MAST to LangGraph and CrewAI with adaptive confidence thresholding from token log-probabilities.
 tags: [Multi-agent AI, Agent frameworks]
 featured: true
 order: 2
-form: graph
+visual: graph
 ---
 
 This project extends MAST to **LangGraph** and **CrewAI**.

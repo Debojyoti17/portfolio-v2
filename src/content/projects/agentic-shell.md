@@ -1,11 +1,12 @@
 ---
 title: "Agentic Shell: Inode & Symlink Auditor Agent"
-status: Team project
+type: Team project
+area: Reliable multi-agent AI
 summary: A natural-language Linux shell agent in Python that audits symlinks, symlink loops, hard links and inode usage, with a safety-gated delete.
-tags: [AI agents, Linux, Python]
+tags: [AI agents, Linux]
 featured: true
 order: 5
-form: tree
+visual: tree
 facts:
   - { label: Language, value: Python }
   - { label: Platform, value: Linux shell }

@@ -1,8 +1,28 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
-/** Shapes the 3D particle field can take. `scene` is the default hero form. */
-export const FORMS = ['scene', 'leaf', 'graph', 'erase', 'tree', 'grid'] as const;
+/** Interactive visuals a project can use (one per project, shown on its card and its page). */
+export const VISUALS = ['leaf', 'ghost', 'graph', 'network', 'tree'] as const;
+
+/** What kind of project it is. */
+export const TYPES = ['Research project', 'Team project', 'Course project'] as const;
+/** How far along it is. Optional: leave out when unknown. */
+export const STAGES = ['In progress', 'Early stage', 'Completed'] as const;
+/** Controlled list of topic tags (max 2 per project). Add to it when you need a new one. */
+export const TAGS = [
+  'Computer vision',
+  'Self-supervised learning',
+  '3D Gaussian Splatting',
+  'Privacy',
+  'Multi-agent AI',
+  'Agent frameworks',
+  'Fault tolerance',
+  'Language models',
+  'AI agents',
+  'Linux',
+  'Web',
+  'Mobile',
+] as const;
 
 // Files whose names start with "_" are ignored (use them as copy-able templates).
 const pattern = '**/[^_]*.{md,mdx}';
@@ -12,10 +32,12 @@ const projects = defineCollection({
   schema: ({ image }) =>
     z.object({
       title: z.string(),
-      /** Free text shown as a tag and used by the Work filter, e.g. "Early stage". */
-      status: z.string(),
+      type: z.enum(TYPES),
+      stage: z.enum(STAGES).optional(),
+      /** Research area it is grouped under on the Work page; must match a title in `interests` (site.config.ts). */
+      area: z.string().optional(),
       summary: z.string(),
-      tags: z.array(z.string()).default([]),
+      tags: z.array(z.enum(TAGS)).max(2).default([]),
       role: z.string().optional(),
       links: z
         .object({
@@ -31,8 +53,8 @@ const projects = defineCollection({
       featured: z.boolean().default(false),
       /** Lower numbers first. */
       order: z.number().default(100),
-      /** Which particle form represents this project. Derived from the slug when omitted. */
-      form: z.enum(FORMS).optional(),
+      /** Which interactive visual represents this project. Derived from the slug when omitted. */
+      visual: z.enum(VISUALS).optional(),
       /** Optional free-form facts for the project sheet, e.g. [{label:'Language', value:'Python'}] */
       facts: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
       draft: z.boolean().default(false),

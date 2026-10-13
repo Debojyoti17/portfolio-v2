@@ -161,51 +161,48 @@ export function initUI(): Cleanup {
     });
   });
 
-  /* work filters */
+  /* device-aware hint on interactive visuals */
+  const coarse = matchMedia('(pointer: coarse)').matches || matchMedia('(hover: none)').matches;
+  if (coarse) document.querySelectorAll<HTMLElement>('[data-hint]').forEach((el) => (el.textContent = 'Drag across the field'));
+
+  /* work filters (optional module: features.workFilters) */
   const filters = document.querySelector<HTMLElement>('[data-filters]');
-  const plates = document.querySelector<HTMLElement>('[data-plates]');
-  if (filters && plates) {
-    const items = [...plates.querySelectorAll<HTMLElement>('.plates__item')];
-    const slots = ['a', 'b', 'c', 'd'];
-    const state = { tag: '', status: '' };
+  const grid = document.querySelector<HTMLElement>('[data-plates]');
+  if (filters && grid) {
+    const items = [...grid.querySelectorAll<HTMLElement>('[data-card]')];
+    const kinds = ['tag', 'type', 'stage'] as const;
+    const state: Record<string, string> = { tag: '', type: '', stage: '' };
     const count = filters.querySelector('[data-filter-count]');
     const params = new URLSearchParams(location.search);
-    state.tag = params.get('tag') ?? '';
-    state.status = params.get('status') ?? '';
-
+    const known = (kind: string, v: string) =>
+      [...filters.querySelectorAll<HTMLElement>(`[data-filter="${kind}"]`)].some((b) => b.dataset.value === v);
+    kinds.forEach((k) => {
+      const v = params.get(k) ?? '';
+      state[k] = known(k, v) ? v : '';
+    });
+    const attr = (it: HTMLElement, kind: string) =>
+      kind === 'tag' ? (it.dataset.tags ?? '').split('|') : [kind === 'type' ? it.dataset.type ?? '' : it.dataset.stageLabel ?? ''];
     const apply = (push = true) => {
       let shown = 0;
       items.forEach((it) => {
-        const tags = (it.dataset.tags ?? '').split('|');
-        const ok = (!state.tag || tags.includes(state.tag)) && (!state.status || it.dataset.status === state.status);
+        const ok = kinds.every((k) => !state[k] || attr(it, k).includes(state[k]));
         it.hidden = !ok;
-        if (ok) {
-          it.dataset.slot = slots[shown % 4];
-          shown++;
-          it.classList.add('is-revealed');
-        }
+        if (ok) shown++;
       });
       filters.querySelectorAll<HTMLElement>('[data-filter]').forEach((b) => {
-        const kind = b.dataset.filter as 'tag' | 'status';
-        b.setAttribute('aria-pressed', String((b.dataset.value ?? '') === state[kind]));
+        b.setAttribute('aria-pressed', String((b.dataset.value ?? '') === state[b.dataset.filter as string]));
       });
       if (count) count.textContent = `${shown} ${shown === 1 ? 'project' : 'projects'}`;
       if (push) {
         const q = new URLSearchParams();
-        if (state.tag) q.set('tag', state.tag);
-        if (state.status) q.set('status', state.status);
+        kinds.forEach((k) => state[k] && q.set(k, state[k]));
         const qs = q.toString();
         history.replaceState(history.state, '', location.pathname + (qs ? `?${qs}` : ''));
       }
     };
-    // ignore unknown values from the URL
-    const known = (kind: 'tag' | 'status', v: string) =>
-      [...filters.querySelectorAll<HTMLElement>(`[data-filter="${kind}"]`)].some((b) => b.dataset.value === v);
-    if (!known('tag', state.tag)) state.tag = '';
-    if (!known('status', state.status)) state.status = '';
     filters.querySelectorAll<HTMLElement>('[data-filter]').forEach((b) =>
       on(b, 'click', () => {
-        state[b.dataset.filter as 'tag' | 'status'] = b.dataset.value ?? '';
+        state[b.dataset.filter as string] = b.dataset.value ?? '';
         apply();
       }),
     );

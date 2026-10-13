@@ -3,6 +3,7 @@ import { siteConfig } from '@site';
 import { href } from '../lib/url';
 import { hasCV } from '../lib/site';
 import { getProjects } from '../lib/content';
+import Stage from '../components/Stage.astro';
 import Icon from '../components/Icon.astro';
 
 const projects = await getProjects();
@@ -10,23 +11,11 @@ const hasContact = siteConfig.homeSections.includes('contact');
 const words = siteConfig.name.split(' ');
 ---
 
-<section
-  class="hero"
-  id="hero"
-  aria-labelledby="hero-title"
-  data-section
-  data-label="Introduction"
-  data-form="scene"
-  data-sx="0.2"
-  data-so="1"
->
+<section class="hero" id="hero" aria-labelledby="hero-title" data-section data-label="Introduction">
+  <Stage mode="hero" scene="scene" />
   <div class="container hero__inner">
     <div class="hero__top">
-      <p class="label hero__kicker">Portfolio · Computer science, machine learning, web</p>
-      <p class="label hero__readout" aria-hidden="true">
-        <span data-readout-form>Form 01 — Captured scene</span>
-        <span class="dot" data-readout-count></span>
-      </p>
+      <p class="label hero__kicker">Portfolio</p>
     </div>
 
     <div>
@@ -40,7 +29,6 @@ const words = siteConfig.name.split(' ');
       </h1>
 
       <div class="hero__row">
-        <p class="lead hero__tagline">{siteConfig.tagline}</p>
         <div class="hero__actions">
           {siteConfig.status && <p class="label">{siteConfig.status}</p>}
           <div class="btn-row">

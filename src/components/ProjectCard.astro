@@ -1,0 +1,43 @@
+---
+import { Image } from 'astro:assets';
+import { href } from '../lib/url';
+import { projectVisual, projectLine, type Project } from '../lib/content';
+import Stage from './Stage.astro';
+import Icon from './Icon.astro';
+import ProjectLine from './ProjectLine.astro';
+
+interface Props {
+  project: Project;
+}
+const { project } = Astro.props;
+const d = project.data;
+const url = href(`/work/${project.id}/`);
+---
+
+<article
+  class="card"
+  data-card
+  data-tags={d.tags.join('|')}
+  data-type={d.type}
+  data-stage-label={d.stage ?? ''}
+>
+  <div class="card__media">
+    {d.cover ? (
+      <a href={url} tabindex="-1" aria-hidden="true">
+        <Image src={d.cover} alt="" widths={[480, 800, 1200]} sizes="(min-width: 900px) 40vw, 100vw" class="card__img" loading="lazy" />
+      </a>
+    ) : (
+      <>
+        <Stage mode="card" scene={projectVisual(project)} />
+        <p class="card__hint label" data-hint aria-hidden="true">Move the cursor across the field</p>
+      </>
+    )}
+  </div>
+  <div class="card__body">
+    <p><ProjectLine line={projectLine(project)} /></p>
+    <h3 class="card__title"><a class="card__link" href={url}>{d.title}</a></h3>
+    <p class="card__sum">{d.summary}</p>
+    {d.tags.length > 0 && <p class="quiet-tags label">{d.tags.join(' · ')}</p>}
+    <span class="card__cta label" aria-hidden="true">View project<Icon name="arrow_forward" /></span>
+  </div>
+</article>

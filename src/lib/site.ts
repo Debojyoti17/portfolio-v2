@@ -20,7 +20,6 @@ const LABELS: Record<string, string> = {
   x: 'X',
   scholar: 'Google Scholar',
   orcid: 'ORCID',
-  arxiv: 'arXiv',
   huggingface: 'Hugging Face',
   kaggle: 'Kaggle',
 };

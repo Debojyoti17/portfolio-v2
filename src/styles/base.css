@@ -9,6 +9,8 @@ html {
   text-size-adjust: 100%;
   scroll-padding-top: calc(var(--nav-h) + 16px);
   background: var(--bg);
+  /* a horizontal finger drag over a particle field must never trigger history swipe-navigation */
+  overscroll-behavior-x: none;
 }
 html.lenis,
 html.lenis body {

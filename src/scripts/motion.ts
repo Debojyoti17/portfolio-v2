@@ -96,63 +96,6 @@ export async function initMotion(): Promise<() => void> {
     ),
   );
 
-  /* ---- research focus: activate the line under the viewport centre ---- */
-  document.querySelectorAll<HTMLElement>('[data-focus]').forEach((track) => {
-    const items = [...track.querySelectorAll<HTMLElement>('[data-focus-item]')];
-    const anchors = [...track.querySelectorAll<HTMLElement>('.focus__anchor')];
-    const setActive = (n: number) => items.forEach((it, i) => it.classList.toggle('is-active', i === n));
-    setActive(0);
-    anchors.forEach((a, i) =>
-      triggers.push(
-        ScrollTrigger.create({
-          trigger: a,
-          start: 'top 55%',
-          end: 'bottom 55%',
-          onToggle: (self) => self.isActive && setActive(i),
-        }),
-      ),
-    );
-  });
-
-  /* ---- HUD (home) ---- */
-  const hud = document.querySelector<HTMLElement>('[data-hud]');
-  if (hud) {
-    const sections = [...document.querySelectorAll<HTMLElement>('main [data-section]')];
-    const scrollEl = hud.querySelector('[data-hud-scroll]');
-    const labelEl = hud.querySelector('[data-hud-label]');
-    const indexEl = hud.querySelector('[data-hud-index]');
-    const line = hud.querySelector<HTMLElement>('[data-hud-line]');
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const numbered = sections.filter((s) => s.hasAttribute('data-numbered'));
-    const idxOf = (s: HTMLElement) => (s.hasAttribute('data-numbered') ? numbered.indexOf(s) + 1 : 0);
-    sections.forEach((s) =>
-      triggers.push(
-        ScrollTrigger.create({
-          trigger: s,
-          start: 'top 55%',
-          end: 'bottom 55%',
-          onToggle: (self) => {
-            if (!self.isActive) return;
-            if (labelEl) labelEl.textContent = s.dataset.label ?? '';
-            if (indexEl) indexEl.textContent = `${pad(idxOf(s))}/${pad(numbered.length)}`;
-          },
-        }),
-      ),
-    );
-    if (labelEl && sections[0]) labelEl.textContent = sections[0].dataset.label ?? '';
-    if (indexEl && sections[0]) indexEl.textContent = `${pad(idxOf(sections[0]))}/${pad(numbered.length)}`;
-    triggers.push(
-      ScrollTrigger.create({
-        start: 0,
-        end: 'max',
-        onUpdate: (self) => {
-          if (scrollEl) scrollEl.textContent = String(Math.round(self.progress * 100)).padStart(3, '0');
-          line?.style.setProperty('--p', self.progress.toFixed(4));
-        },
-      }),
-    );
-  }
-
   document.fonts?.ready.then(() => ScrollTrigger.refresh());
   window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
 

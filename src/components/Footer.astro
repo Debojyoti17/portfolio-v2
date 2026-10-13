@@ -23,8 +23,7 @@ const initials = siteConfig.initials;
     <div class="grid footer__grid">
       <div class="footer__about">
         <p class="label footer__title">Contact</p>
-        <p class="lead footer__lead">{siteConfig.tagline}</p>
-        <p style="margin-top:20px">
+        <p>
           <a class="link" href={`mailto:${siteConfig.email}`}>{siteConfig.email}<Icon name="arrow_outward" /></a>
         </p>
       </div>
@@ -58,7 +57,7 @@ const initials = siteConfig.initials;
       )}
     </div>
 
-    <p class="footer__mono" aria-hidden="true">{initials}<span>.</span></p>
+    <p class="footer__mono" aria-hidden="true">{initials}<span class="footer__sq"></span></p>
 
     <div class="footer__base">
       <p class="label">

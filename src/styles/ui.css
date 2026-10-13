@@ -99,19 +99,20 @@
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--font-dot);
-  font-weight: 700;
-  font-size: var(--t-dot);
-  letter-spacing: 0.04em;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  line-height: 1.2;
+  line-height: 1.4;
+  color: var(--fg-2);
 }
 .status::before {
   content: '';
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background: var(--accent);
 }
 
@@ -337,4 +338,8 @@ html.motion-failed .w > .wi {
 }
 .appear {
   animation: appear 0.9s var(--ease-out) 0.35s both;
+}
+
+.quiet-tags {
+  color: var(--muted);
 }

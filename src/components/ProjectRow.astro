@@ -1,8 +1,7 @@
 ---
 import { href } from '../lib/url';
-import { projectForm, type Project } from '../lib/content';
-import Icon from './Icon.astro';
-import StatusTag from './StatusTag.astro';
+import { projectLine, type Project } from '../lib/content';
+import ProjectLine from './ProjectLine.astro';
 
 interface Props {
   project: Project;
@@ -13,10 +12,10 @@ const idx = String(index + 1).padStart(2, '0');
 ---
 
 <li class="row" data-reveal="wipe">
-  <a class="row__link" href={href(`/work/${project.id}/`)} data-hover-form={projectForm(project)}>
+  <a class="row__link" href={href(`/work/${project.id}/`)}>
     <span class="row__idx dot" aria-hidden="true">{idx}</span>
     <h3 class="row__title">{project.data.title}</h3>
     <p class="row__sum">{project.data.summary}</p>
-    <span class="row__status"><StatusTag status={project.data.status} /></span>
+    <span class="row__status"><ProjectLine line={projectLine(project)} /></span>
   </a>
 </li>

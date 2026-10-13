@@ -1,13 +1,13 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { features } from '@site';
-import { FORMS } from '../content.config';
+import { VISUALS } from '../content.config';
 import { hashString } from './hash';
 
 export type Project = CollectionEntry<'projects'>;
 export type Note = CollectionEntry<'notes'>;
 export type TimelineEntry = CollectionEntry<'timeline'>;
 export type Publication = CollectionEntry<'publications'>;
-export type Form = (typeof FORMS)[number];
+export type Visual = (typeof VISUALS)[number];
 
 export async function getProjects(): Promise<Project[]> {
   const all = await getCollection('projects', (p) => !p.data.draft);
@@ -20,9 +20,14 @@ export async function getFeaturedProjects(): Promise<Project[]> {
   return featured.length ? featured : all.slice(0, 4);
 }
 
-/** The particle form used to represent a project. */
-export function projectForm(p: Project): Form {
-  return p.data.form ?? FORMS[hashString(p.id) % FORMS.length];
+/** The interactive visual that represents a project (same on its card and its page). */
+export function projectVisual(p: Project): Visual {
+  return p.data.visual ?? VISUALS[hashString(p.id) % VISUALS.length];
+}
+
+/** "Research project · In progress" */
+export function projectLine(p: Project): string {
+  return [p.data.type, p.data.stage].filter(Boolean).join(' · ');
 }
 
 export async function getNotes(): Promise<Note[]> {

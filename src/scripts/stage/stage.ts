@@ -1,10 +1,14 @@
 /**
- * The 3D stage: a GPU point cloud ("Gaussian-splat" style) that assembles into
- * different forms as the page scrolls and reacts to the cursor.
+ * Interactive particle stage.
  *
- * Loaded lazily (dynamic import) and only on pages that contain [data-stage].
- * Falls back to the server-rendered SVG when WebGL is missing, the context is
- * lost, or the visitor prefers reduced motion.
+ * A small spring-physics engine on the CPU (a few thousand particles) drawing a GPU point cloud
+ * with Three.js. Fingers and cursors part the particles smoothly, taps send a ripple outward, and
+ * each scene adds its own meaning (see behaviours.ts).
+ *
+ * Touch: read through passive touch listeners so page scrolling is never blocked; touchmove keeps
+ * firing while the page scrolls, so the field keeps reacting while you scroll.
+ *
+ * Loaded lazily; falls back to the server-rendered SVG without WebGL or under reduced motion.
  */
 import {
   AdditiveBlending,
@@ -15,29 +19,29 @@ import {
   Points,
   Scene,
   ShaderMaterial,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { FORM_LABELS, generateForm, isFormName, type FormName } from './forms';
+import { buildScene, isSceneName, type SceneData, type SceneName } from './scenes';
+import { makeBehaviour, type Behaviour, type Ptr } from './behaviours';
 import { fragmentShader, vertexShader } from './shaders';
-import { rng } from '../../lib/hash';
-
-interface Anchor {
-  el: HTMLElement;
-  form: FormName;
-  top: number;
-  height: number;
-  sx: number;
-  sy: number;
-  so: number;
-}
 
 const FOV = 38;
 const CAM_Z = 10;
-const smoother = (x: number) => x * x * x * (x * (x * 6 - 15) + 10);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const HALF_H = Math.tan((FOV * Math.PI) / 360) * CAM_Z;
+const MAX_LIVE = 4;
+const SLOTS = 2;
+
+type Mode = 'hero' | 'card' | 'viewport';
+
+const isSmall = () => matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
+const isCoarse = () => matchMedia('(pointer: coarse)').matches;
+
+const COUNTS: Record<Mode, [number, number]> = {
+  hero: [12000, 5500],
+  card: [5200, 3400],
+  viewport: [8500, 4500],
+};
 
 function cssColor(name: string, fallback: string): [number, number, number] {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
@@ -51,392 +55,550 @@ function cssColor(name: string, fallback: string): [number, number, number] {
   return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-export async function mountStages(): Promise<() => void> {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
-  const roots = [...document.querySelectorAll<HTMLElement>('[data-stage]')];
-  const stops = await Promise.all(roots.map((r) => mountStage(r).catch((e) => (console.warn('[stage]', e), () => {}))));
-  return () => stops.forEach((s) => s());
+/* ------------------------------------------------------------------ input */
+
+interface GPtr {
+  id: string;
+  x: number;
+  y: number;
 }
+const input = { pointers: [] as GPtr[] };
+const upsert = (id: string, x: number, y: number) => {
+  const p = input.pointers.find((q) => q.id === id);
+  if (p) { p.x = x; p.y = y; } else input.pointers.push({ id, x, y });
+};
+const remove = (id: string) => {
+  input.pointers = input.pointers.filter((q) => q.id !== id);
+};
 
-async function mountStage(root: HTMLElement): Promise<() => void> {
-  const canvasEl = root.querySelector<HTMLCanvasElement>('[data-stage-canvas]');
-  if (!canvasEl) return () => {};
-  const canvas: HTMLCanvasElement = canvasEl;
-  const fixed = root.dataset.stage === 'fixed';
-  const small = matchMedia('(max-width: 760px)').matches || matchMedia('(pointer: coarse)').matches;
-  const count = fixed ? (small ? 6500 : 16000) : small ? 4500 : 9000;
-  const dprCap = small ? 1.25 : 1.75;
+/* ----------------------------------------------------- renderer pool */
 
+/**
+ * WebGL contexts are scarce (browsers allow only a handful). The pool keeps at most MAX_LIVE
+ * renderers and lends their canvases to whichever stages are on screen.
+ */
+interface PoolSlot {
+  renderer: WebGLRenderer;
+  canvas: HTMLCanvasElement;
+  busy: boolean;
+  dead: boolean;
+}
+const pool: PoolSlot[] = [];
+function acquire(): PoolSlot | null {
+  const free = pool.find((p) => !p.busy && !p.dead);
+  if (free) {
+    free.busy = true;
+    return free;
+  }
+  if (pool.filter((p) => !p.dead).length >= MAX_LIVE) return null;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'stage__canvas';
   let renderer: WebGLRenderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
   } catch {
-    return () => {}; // no WebGL: the static SVG stays
+    return null;
   }
   renderer.setClearColor(0x000000, 0);
+  const slot: PoolSlot = { renderer, canvas, busy: true, dead: false };
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    slot.dead = true;
+  });
+  pool.push(slot);
+  return slot;
+}
 
-  /* ---------- forms ---------- */
-  const cache = new Map<FormName, Float32Array>();
-  const getForm = (n: FormName) => {
-    let f = cache.get(n);
-    if (!f) cache.set(n, (f = generateForm(n, count)));
-    return f;
-  };
+/* ------------------------------------------------------------------ stage */
 
-  /* ---------- anchors (sections that define which form is shown) ---------- */
-  let anchors: Anchor[] = [];
-  const readAnchors = () => {
-    if (!fixed) {
-      const form = isFormName(root.dataset.stageForm) ? root.dataset.stageForm : 'scene';
-      anchors = [{ el: root, form, top: 0, height: 1, sx: 0, sy: 0, so: 1 }];
-      return;
-    }
-    const sy = window.scrollY;
-    anchors = [...document.querySelectorAll<HTMLElement>('main [data-form]')]
-      .filter((el) => isFormName(el.dataset.form))
-      .map((el) => {
-        const r = el.getBoundingClientRect();
-        return {
-          el,
-          form: el.dataset.form as FormName,
-          top: r.top + sy,
-          height: Math.max(1, r.height),
-          sx: parseFloat(el.dataset.sx ?? '0.22'),
-          sy: parseFloat(el.dataset.sy ?? '0'),
-          so: parseFloat(el.dataset.so ?? '1'),
-        };
-      })
-      .sort((a, b) => a.top - b.top);
-    if (anchors.length === 0) {
-      const form = isFormName(root.dataset.stageForm) ? root.dataset.stageForm : 'scene';
-      anchors = [{ el: root, form, top: 0, height: 1, sx: 0.22, sy: 0, so: 1 }];
-    }
-  };
-  readAnchors();
+interface Slot {
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  amt: number;
+  on: boolean;
+}
+interface Ripple {
+  x: number;
+  y: number;
+  t0: number;
+}
 
-  /* ---------- three.js objects ---------- */
-  const geometry = new BufferGeometry();
-  const aA = new BufferAttribute(new Float32Array(count * 3), 3);
-  const aB = new BufferAttribute(new Float32Array(count * 3), 3);
-  const aC = new BufferAttribute(new Float32Array(count * 3), 3);
-  for (const a of [aA, aB, aC]) a.setUsage(35048 /* DynamicDrawUsage */);
-  const seeds = new Float32Array(count * 4);
-  const rnd = rng(20240311);
-  for (let i = 0; i < seeds.length; i++) seeds[i] = rnd();
-  geometry.setAttribute('position', aA);
-  geometry.setAttribute('aB', aB);
-  geometry.setAttribute('aC', aC);
-  geometry.setAttribute('aSeed', new BufferAttribute(seeds, 4));
+class Stage {
+  mounted = false;
+  visible = false;
+  disposed = false;
+  mode: Mode;
+  sceneName: SceneName;
+  n: number;
 
-  const uniforms = {
-    uMix: { value: 0 },
-    uHover: { value: 0 },
-    uIntro: { value: 0 },
-    uTime: { value: 0 },
-    uPointer: { value: new Vector3(99, 99, 0) },
-    uOffset: { value: new Vector2() },
-    uScale: { value: 1 },
-    uRot: { value: new Vector2() },
-    uSize: { value: fixed ? (small ? 44 : 34) : small ? 34 : 30 },
+  private data!: SceneData;
+  private beh!: Behaviour;
+  private renderer!: WebGLRenderer;
+  private slot: PoolSlot | null = null;
+  canvas!: HTMLCanvasElement;
+  private geometry!: BufferGeometry;
+  private material!: ShaderMaterial;
+  private scene3!: Scene;
+  private camera!: PerspectiveCamera;
+  private posAttr!: BufferAttribute;
+  private lookAttr!: BufferAttribute;
+  private pos!: Float32Array;
+  private vel!: Float32Array;
+  private kArr!: Float32Array;
+  private cArr!: Float32Array;
+  private uniforms = {
+    uSize: { value: 30 },
     uPx: { value: 1 },
     uOpacity: { value: 1 },
     uInk: { value: new Vector3(0.1, 0.1, 0.1) },
     uAccent: { value: new Vector3(0.9, 0.1, 0.1) },
   };
-  const material = new ShaderMaterial({
-    uniforms,
-    vertexShader,
-    fragmentShader,
-    transparent: true,
-    depthWrite: false,
-    depthTest: false,
-  });
-  const points = new Points(geometry, material);
-  points.frustumCulled = false;
-  const scene = new Scene();
-  scene.add(points);
-  const camera = new PerspectiveCamera(FOV, 1, 0.1, 100);
-  camera.position.z = CAM_Z;
 
-  const applyTheme = () => {
+  private w = 1;
+  private h = 1;
+  private halfW = 5;
+  private halfH = HALF_H;
+  private portrait = false;
+  private scale = 1;
+  private offX = 0;
+  private offY = 0;
+  private R = 1;
+  private marginPx = 40;
+  private baseSize = 30;
+  private slots: Slot[] = Array.from({ length: SLOTS }, () => ({ x: 0, y: 0, tx: 0, ty: 0, amt: 0, on: false }));
+  private ripples: Ripple[] = [];
+  private lastInput = -99;
+  private t = 0;
+  private skip = false;
+  private ro?: ResizeObserver;
+
+  constructor(public root: HTMLElement) {
+    this.mode = (['hero', 'card', 'viewport'].includes(root.dataset.stage ?? '') ? root.dataset.stage : 'card') as Mode;
+    this.sceneName = isSceneName(root.dataset.scene) ? root.dataset.scene : 'scene';
+    const small = isSmall();
+    this.n = COUNTS[this.mode][small ? 1 : 0];
+  }
+
+  mount(): boolean {
+    if (this.mounted || this.disposed) return this.mounted;
+    const slot = acquire();
+    if (!slot) return false;
+    this.slot = slot;
+    this.renderer = slot.renderer;
+    this.canvas = slot.canvas;
+    this.root.appendChild(this.canvas);
+    this.data = buildScene(this.sceneName, this.n);
+    this.beh = makeBehaviour(this.data);
+    const n = this.n;
+
+    this.camera = new PerspectiveCamera(FOV, 1, 0.1, 100);
+    this.camera.position.z = CAM_Z;
+    this.scene3 = new Scene();
+    this.pos = new Float32Array(n * 3);
+    this.vel = new Float32Array(n * 3);
+    this.kArr = new Float32Array(n);
+    this.cArr = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const k = 26 * (0.75 + 0.5 * this.data.seed[i * 4]);
+      this.kArr[i] = k;
+      this.cArr[i] = 2 * Math.sqrt(k) * 0.5;
+    }
+    this.posAttr = new BufferAttribute(this.pos, 3);
+    this.posAttr.setUsage(35048);
+    this.lookAttr = new BufferAttribute(this.beh.look, 4);
+    this.lookAttr.setUsage(35048);
+    this.geometry = new BufferGeometry();
+    this.geometry.setAttribute('position', this.posAttr);
+    this.geometry.setAttribute('aLook', this.lookAttr);
+    this.geometry.setAttribute('aSeed', new BufferAttribute(this.data.seed, 4));
+    this.material = new ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader,
+      fragmentShader,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const points = new Points(this.geometry, this.material);
+    points.frustumCulled = false;
+    this.scene3.add(points);
+
+    this.baseSize = this.mode === 'hero' ? (isSmall() ? 40 : 32) : isSmall() ? 38 : 34;
+    this.resize(true);
+    // start as uninitialised noise; the springs pull the particles into form
+    const r = this.data.seed;
+    for (let i = 0; i < n; i++) {
+      this.pos[i * 3] = (r[i * 4 + 1] - 0.5) * this.halfW * 1.7;
+      this.pos[i * 3 + 1] = (r[i * 4 + 2] - 0.5) * this.halfH * 1.7;
+      this.pos[i * 3 + 2] = (r[i * 4 + 3] - 0.5) * 3;
+    }
+    this.applyTheme();
+    this.t = 0;
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(this.root);
+    this.root.classList.add('is-live');
+    this.mounted = true;
+    this.lastInput = -99;
+    return true;
+  }
+
+  applyTheme() {
+    if (!this.mounted && !this.uniforms) return;
     const ink = cssColor('--stage-ink', '#141416');
     const acc = cssColor('--accent', '#e4161f');
-    uniforms.uInk.value.set(...ink);
-    uniforms.uAccent.value.set(...acc);
+    this.uniforms.uInk.value.set(...ink);
+    this.uniforms.uAccent.value.set(...acc);
     const dark = ink[0] + ink[1] + ink[2] > 1.5;
-    material.blending = dark ? AdditiveBlending : NormalBlending;
-    // additive light on dark needs less alpha per splat; ink on paper needs more
-    uniforms.uSize.value = (fixed ? (small ? 44 : 34) : small ? 34 : 30) * (dark ? 1 : 1.08);
-  };
-  applyTheme();
-  const themeObserver = new MutationObserver(applyTheme);
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  const schemeMq = matchMedia('(prefers-color-scheme: dark)');
-  schemeMq.addEventListener('change', applyTheme);
+    if (this.material) this.material.blending = dark ? AdditiveBlending : NormalBlending;
+    this.uniforms.uSize.value = this.baseSize * (dark ? 1 : 1.08);
+  }
 
-  /* ---------- state ---------- */
-  let curA: FormName | null = null;
-  let curB: FormName | null = null;
-  let curC: FormName | null = null;
-  let hoverTarget: FormName | null = null;
-  let hoverValue = 0;
-  let width = 1;
-  let height = 1;
-  let running = false;
-  let raf = 0;
-  let disposed = false;
-  let lastActive = performance.now();
-  let frameToggle = false;
-  let fSmooth = -1;
-  const pointer = { x: 0, y: 0, tx: 0, ty: 0, amt: 0, tamt: 0, ndcX: 0, ndcY: 0 };
-  let halfW = 5;
-  let halfH = 3.4;
-  let portrait = false;
-
-  const resize = () => {
-    const rect = root.getBoundingClientRect();
+  resize(force = false) {
+    if (!this.renderer) return;
+    const rect = this.root.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
-    if (w === width && h === height) return;
-    width = w;
-    height = h;
-    const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(w, h, false);
-    uniforms.uPx.value = dpr * (h / 900) * 1.0;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    halfH = Math.tan((FOV * Math.PI) / 360) * CAM_Z;
-    halfW = halfH * camera.aspect;
-    portrait = camera.aspect < 0.9;
-  };
-
-  const setBuf = (att: BufferAttribute, form: FormName) => {
-    (att.array as Float32Array).set(getForm(form));
-    att.needsUpdate = true;
-  };
-
-  /** Scroll position → fractional anchor index, with plateaus so each form holds still. */
-  const computeF = (y: number): number => {
-    const n = anchors.length;
-    for (let i = 0; i < n - 1; i++) {
-      const a = anchors[i], b = anchors[i + 1];
-      const gs = a.top + a.height * 0.75;
-      const ge = b.top + b.height * 0.25;
-      if (y < Math.min(gs, ge)) return i;
-      if (ge <= gs) {
-        const mid = (a.top + a.height / 2 + b.top + b.height / 2) / 2;
-        if (y < mid) return i;
-        continue;
-      }
-      if (y <= ge) return i + smoother(clamp01((y - gs) / (ge - gs)));
+    if (!force && w === this.w && h === this.h) return;
+    this.w = w;
+    this.h = h;
+    const dpr = Math.min(window.devicePixelRatio || 1, isSmall() ? 1.5 : 1.75);
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(w, h, false);
+    this.uniforms.uPx.value = dpr * (h / 900) * (this.mode === 'hero' ? 1 : 1.35);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.halfH = HALF_H;
+    this.halfW = HALF_H * this.camera.aspect;
+    this.portrait = this.camera.aspect < 0.9;
+    if (this.mode === 'hero') {
+      const occ = this.portrait ? 1.0 : 0.56;
+      this.scale = Math.min((occ * this.halfW) / 3.5, (0.86 * this.halfH) / 2.25);
+      this.offX = this.portrait ? 0 : 0.2 * this.halfW;
+      this.offY = this.portrait ? this.halfH * 0.34 : 0;
+    } else {
+      this.scale = Math.min((0.82 * this.halfW) / 3.5, (0.8 * this.halfH) / 2.25);
+      this.offX = 0;
+      this.offY = 0;
     }
-    return n - 1;
-  };
-
-  /* ---------- input ---------- */
-  const onPointerMove = (e: PointerEvent) => {
-    const rect = fixed ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight } : root.getBoundingClientRect();
-    const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-    pointer.ndcX = nx;
-    pointer.ndcY = ny;
-    pointer.tx = nx * halfW;
-    pointer.ty = ny * halfH;
-    const inside = Math.abs(nx) <= 1 && Math.abs(ny) <= 1;
-    pointer.tamt = inside ? 1 : 0;
-    lastActive = performance.now();
-    if (!running) start();
-  };
-  const onPointerLeave = () => {
-    pointer.tamt = 0;
-  };
-  const target: EventTarget = fixed ? window : root;
-  target.addEventListener('pointermove', onPointerMove as EventListener, { passive: true });
-  if (fixed) document.documentElement.addEventListener('pointerleave', onPointerLeave);
-  else root.addEventListener('pointerleave', onPointerLeave);
-
-  // hover forms: any element with data-hover-form morphs the field while hovered/focused
-  const hoverIn = (e: Event) => {
-    const el = (e.target as HTMLElement | null)?.closest?.('[data-hover-form]') as HTMLElement | null;
-    if (el && isFormName(el.dataset.hoverForm)) hoverTarget = el.dataset.hoverForm;
-  };
-  const hoverOut = (e: Event) => {
-    const el = (e.target as HTMLElement | null)?.closest?.('[data-hover-form]');
-    if (el) hoverTarget = null;
-  };
-  if (fixed) {
-    document.addEventListener('pointerover', hoverIn);
-    document.addEventListener('pointerout', hoverOut);
-    document.addEventListener('focusin', hoverIn);
-    document.addEventListener('focusout', hoverOut);
+    const rPx = Math.min(115, Math.max(46, 0.13 * Math.min(w, h))) * (isCoarse() ? 1.15 : 1);
+    this.marginPx = rPx;
+    this.R = rPx * ((2 * this.halfH) / h);
   }
 
-  /* ---------- loop ---------- */
-  const t0 = performance.now();
-  let introStart = -1;
-  const frame = (now: number) => {
-    raf = 0;
-    if (disposed || !running) return;
-    raf = requestAnimationFrame(frame);
+  /** Tap / click: ripple + scene-specific action. Coordinates are client pixels. */
+  tap(cx: number, cy: number) {
+    if (!this.mounted || !this.visible) return;
+    const rect = this.root.getBoundingClientRect();
+    if (cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
+    const wx = ((cx - rect.left) / rect.width * 2 - 1) * this.halfW;
+    const wy = -(((cy - rect.top) / rect.height) * 2 - 1) * this.halfH;
+    this.ripples.push({ x: wx, y: wy, t0: this.t });
+    if (this.ripples.length > 4) this.ripples.shift();
+    this.beh.tap((wx - this.offX) / this.scale, (wy - this.offY) / this.scale);
+    this.lastInput = this.t;
+  }
 
-    // idle throttle: after 2.5 s without input render every other frame
-    const idle = now - lastActive > 2500;
-    if (idle) {
-      frameToggle = !frameToggle;
-      if (frameToggle) return;
+  step(dt: number, time: number) {
+    if (!this.mounted) return;
+    this.t += dt;
+    const t = this.t;
+    const rect = this.root.getBoundingClientRect();
+    if (rect.width > 0 && (Math.abs(rect.width - this.w) > 1.5 || Math.abs(rect.height - this.h) > 1.5)) this.resize();
+
+    // pointers → smoothed slots
+    const gp = input.pointers;
+    let any = false;
+    for (let j = 0; j < SLOTS; j++) {
+      const s = this.slots[j], g = gp[j];
+      let on = false;
+      if (g) {
+        const m = this.marginPx;
+        on = g.x >= rect.left - m && g.x <= rect.right + m && g.y >= rect.top - m && g.y <= rect.bottom + m;
+        if (on) {
+          const wx = ((g.x - rect.left) / rect.width * 2 - 1) * this.halfW;
+          const wy = -(((g.y - rect.top) / rect.height) * 2 - 1) * this.halfH;
+          if (!s.on && s.amt < 0.05) { s.x = wx; s.y = wy; }
+          s.tx = wx;
+          s.ty = wy;
+        }
+      }
+      s.on = on;
+      s.amt += ((on ? 1 : 0) - s.amt) * (1 - Math.exp(-dt * (on ? 14 : 5)));
+      if (on) {
+        s.x += (s.tx - s.x) * (1 - Math.exp(-dt * 22));
+        s.y += (s.ty - s.y) * (1 - Math.exp(-dt * 22));
+        any = true;
+      }
     }
+    if (any) this.lastInput = t;
 
-    const time = (now - t0) / 1000;
-    if (introStart < 0) introStart = now;
-    const intro = clamp01((now - introStart) / 2800);
-    uniforms.uIntro.value = fixed && anchors[0].form === 'noise' ? 1 : smoother(intro);
-    uniforms.uTime.value = time;
-
-    // which pair of forms, and how far between them
-    const scrollY = window.scrollY;
-    const f = fixed ? computeF(scrollY + window.innerHeight * 0.5) : 0;
-    fSmooth = fSmooth < 0 ? f : fSmooth + (f - fSmooth) * 0.16;
-    if (Math.abs(fSmooth - f) < 0.0005) fSmooth = f;
-    const i = Math.min(anchors.length - 1, Math.floor(fSmooth));
-    const j = Math.min(anchors.length - 1, i + 1);
-    const t = i === j ? 0 : fSmooth - i;
-    const A = anchors[i], B = anchors[j];
-    if (curA !== A.form) { setBuf(aA, A.form); curA = A.form; }
-    if (curB !== B.form) { setBuf(aB, B.form); curB = B.form; }
-    uniforms.uMix.value = A.form === B.form ? 0 : t;
-
-    // hover form
-    const wantHover = hoverTarget;
-    if (wantHover && curC !== wantHover && hoverValue < 0.04) {
-      setBuf(aC, wantHover);
-      curC = wantHover;
+    const ptrWorld: Ptr[] = [];
+    const ptrHome: Ptr[] = [];
+    for (const s of this.slots) {
+      if (s.amt < 0.02) continue;
+      ptrWorld.push({ x: s.x, y: s.y, amt: s.amt });
+      ptrHome.push({ x: (s.x - this.offX) / this.scale, y: (s.y - this.offY) / this.scale, amt: s.amt });
     }
-    const goal = wantHover && curC === wantHover ? 1 : 0;
-    // if the hover target changed while another is shown, retreat first
-    const retreat = wantHover && curC !== wantHover ? 0 : goal;
-    hoverValue += (retreat - hoverValue) * 0.07;
-    if (Math.abs(hoverValue - retreat) < 0.002) hoverValue = retreat;
-    uniforms.uHover.value = hoverValue;
+    this.ripples = this.ripples.filter((r) => t - r.t0 < 1.2);
 
-    // placement
-    const sx = lerp(A.sx, B.sx, t), sy = lerp(A.sy, B.sy, t), so = lerp(A.so, B.so, t);
-    let scale: number;
-    if (fixed) {
-      const occ = portrait ? 1.0 : 0.56;
-      scale = Math.min((occ * halfW) / 3.5, (0.86 * halfH) / 2.25);
-      uniforms.uOffset.value.set(portrait ? 0 : sx * halfW, portrait ? halfH * (0.34 + sy) : sy * halfH);
-    } else {
-      scale = Math.min((0.9 * halfW) / 3.5, (0.86 * halfH) / 2.25);
-      uniforms.uOffset.value.set(0, 0);
+    this.beh.update({
+      t,
+      dt,
+      worldR: this.R,
+      scale: this.scale,
+      origin: { x: this.offX, y: this.offY },
+      ptrHome,
+      ptrWorld,
+      pos: this.pos,
+      idle: t - this.lastInput,
+    });
+
+    /* ---- physics ---- */
+    const { pos, vel, kArr, cArr } = this;
+    const home = this.data.home, seed = this.data.seed, hd = this.beh.hdyn, look = this.beh.look;
+    const n = this.n;
+    const swayOn = this.data.rotate;
+    const mx = ptrWorld.length ? ptrWorld[0].x / this.halfW : 0;
+    const yaw = this.data.view.yaw + (swayOn ? Math.sin(t * 0.18) * 0.16 + mx * 0.08 : 0);
+    const pitch = this.data.view.pitch;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const scale = this.scale, offX = this.offX, offY = this.offY;
+    const R = this.R, R2 = R * R;
+    const breath = 0.028;
+    const np = ptrWorld.length, nr = this.ripples.length;
+    const ringSpeed = R * 5.5;
+    const rx: number[] = [], ry: number[] = [], rrad: number[] = [], ramp: number[] = [];
+    for (const r of this.ripples) {
+      const age = t - r.t0;
+      rx.push(r.x);
+      ry.push(r.y);
+      rrad.push(age * ringSpeed);
+      ramp.push(Math.exp(-age * 1.9));
     }
-    uniforms.uScale.value = scale;
-    uniforms.uOpacity.value = Math.min(1, so + hoverValue * 0.5) * (portrait && fixed ? (so >= 0.9 ? 0.8 : 0.5) : 1);
+    const bandW = 0.5 * R;
+    for (let i = 0, i3 = 0, i4 = 0; i < n; i++, i3 += 3, i4 += 4) {
+      const hx = home[i3] + hd[i3], hy = home[i3 + 1] + hd[i3 + 1], hz = home[i3 + 2] + hd[i3 + 2];
+      const x1 = hx * cy + hz * sy;
+      const z1 = -hx * sy + hz * cy;
+      const y1 = hy * cp - z1 * sp;
+      const z2 = hy * sp + z1 * cp;
+      const tx = x1 * scale + offX + Math.sin(time * 0.55 + seed[i4] * 60) * breath;
+      const ty = y1 * scale + offY + Math.cos(time * 0.43 + seed[i4 + 1] * 50) * breath;
+      const tz = z2 * scale;
+      const px = pos[i3], py = pos[i3 + 1], pz = pos[i3 + 2];
+      const k = kArr[i], c = cArr[i];
+      let ax = k * (tx - px) - c * vel[i3];
+      let ay = k * (ty - py) - c * vel[i3 + 1];
+      let az = k * (tz - pz) - c * vel[i3 + 2];
+      let prox = 0;
+      for (let j = 0; j < np; j++) {
+        const p = ptrWorld[j];
+        const dx = px - p.x, dy = py - p.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < R2) {
+          const d = Math.sqrt(d2) + 1e-4;
+          let w = 1 - d / R;
+          w = w * w * (3 - 2 * w);
+          const f = k * R * 1.05 * w * p.amt;
+          const ux = dx / d, uy = dy / d;
+          ax += ux * f - uy * f * 0.3;
+          ay += uy * f + ux * f * 0.3;
+          az += f * 0.5;
+          if (w * p.amt > prox) prox = w * p.amt;
+        }
+      }
+      for (let j = 0; j < nr; j++) {
+        const dx = px - rx[j], dy = py - ry[j];
+        const d = Math.sqrt(dx * dx + dy * dy) + 1e-4;
+        const q = (d - rrad[j]) / bandW;
+        if (q > -3 && q < 3) {
+          const band = Math.exp(-q * q) * ramp[j];
+          const f = k * R * 1.5 * band;
+          ax += (dx / d) * f;
+          ay += (dy / d) * f;
+          az += f * 0.4;
+          if (band * 0.7 > prox) prox = band * 0.7;
+        }
+      }
+      const vx = vel[i3] + ax * dt, vy = vel[i3 + 1] + ay * dt, vz = vel[i3 + 2] + az * dt;
+      vel[i3] = vx; vel[i3 + 1] = vy; vel[i3 + 2] = vz;
+      pos[i3] = px + vx * dt;
+      pos[i3 + 1] = py + vy * dt;
+      pos[i3 + 2] = pz + vz * dt;
+      look[i4 + 3] = prox;
+    }
+    this.posAttr.needsUpdate = true;
+    this.lookAttr.needsUpdate = true;
+    this.renderer.render(this.scene3, this.camera);
+  }
 
-    // pointer smoothing
-    pointer.x += (pointer.tx - pointer.x) * 0.14;
-    pointer.y += (pointer.ty - pointer.y) * 0.14;
-    pointer.amt += (pointer.tamt - pointer.amt) * 0.08;
-    uniforms.uPointer.value.set(pointer.x, pointer.y, pointer.amt);
+  dispose() {
+    if (!this.mounted) return;
+    this.mounted = false;
+    this.ro?.disconnect();
+    this.geometry.dispose();
+    this.material.dispose();
+    this.canvas.remove();
+    if (this.slot) this.slot.busy = false;
+    this.slot = null;
+    this.root.classList.remove('is-live');
+  }
 
-    // slow rotation + parallax
-    const yaw = Math.sin(time * 0.12) * 0.16 + pointer.ndcX * 0.14 * pointer.amt + (fixed ? fSmooth * 0.18 : 0);
-    const pitch = pointer.ndcY * 0.07 * pointer.amt;
-    uniforms.uRot.value.set(yaw, pitch);
+  /** distance of the stage centre from the viewport centre, for eviction decisions */
+  distance(): number {
+    const r = this.root.getBoundingClientRect();
+    return Math.abs(r.top + r.height / 2 - window.innerHeight / 2);
+  }
+}
 
-    renderer.render(scene, camera);
-  };
+/* -------------------------------------------------------------- manager */
 
-  const start = () => {
-    if (running || disposed) return;
-    running = true;
-    raf = requestAnimationFrame(frame);
-  };
-  const stop = () => {
-    running = false;
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-  };
-
-  /* ---------- lifecycle ---------- */
-  const ro = new ResizeObserver(() => {
-    resize();
-    readAnchors();
+export async function mountStages(): Promise<() => void> {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
+  const stages: Stage[] = [];
+  document.querySelectorAll<HTMLElement>('[data-stage]').forEach((root) => {
+    stages.push(new Stage(root));
   });
-  ro.observe(root);
-  if (fixed) ro.observe(document.body);
-  resize();
-  const refresh = () => readAnchors();
-  window.addEventListener('load', refresh);
-  document.fonts?.ready.then(refresh);
+  if (!stages.length) return () => {};
 
-  const onVisibility = () => (document.hidden ? stop() : visible && start());
-  let visible = true;
-  document.addEventListener('visibilitychange', onVisibility);
+  let raf = 0;
+  let last = 0;
+  let toggle = false;
+  const stats = { frames: 0, sumMs: 0, maxMs: 0, recent: [] as number[] };
+  const live = () => stages.filter((s) => s.mounted);
+
+  const ensureMounted = (s: Stage) => {
+    if (s.mounted || s.disposed) return;
+    if (!s.mount()) {
+      const far = live().filter((o) => !o.visible).sort((a, b) => b.distance() - a.distance())[0];
+      if (!far) return;
+      far.dispose();
+      s.mount();
+    }
+  };
+
+  const loop = (now: number) => {
+    raf = 0;
+    const active = stages.filter((s) => s.mounted && s.visible);
+    if (!active.length || document.hidden) return;
+    raf = requestAnimationFrame(loop);
+    const dtRaw = Math.min(0.05, (now - last) / 1000 || 0.016);
+    last = now;
+    // idle: half rate when nobody is interacting
+    const idle = active.every((s) => s['t'] - s['lastInput'] > 3);
+    if (idle) {
+      toggle = !toggle;
+      if (toggle) return;
+    }
+    const dt = Math.min(0.033, dtRaw);
+    const t0 = performance.now();
+    for (const s of active) s.step(dt, now / 1000);
+    const ms = performance.now() - t0;
+    stats.frames++;
+    stats.sumMs += ms;
+    if (ms > stats.maxMs) stats.maxMs = ms;
+    stats.recent.push(ms);
+    if (stats.recent.length > 240) stats.recent.shift();
+  };
+  const start = () => {
+    if (!raf && !document.hidden) {
+      last = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  };
+
   const io = new IntersectionObserver(
     (entries) => {
-      visible = entries[0]?.isIntersecting ?? true;
-      if (!fixed) visible ? !document.hidden && start() : stop();
+      for (const e of entries) {
+        const s = stages.find((x) => x.root === e.target);
+        if (!s) continue;
+        s.visible = e.isIntersecting;
+        if (s.visible) ensureMounted(s);
+      }
+      start();
     },
-    { rootMargin: '80px' },
+    { rootMargin: '120px' },
   );
-  io.observe(root);
+  stages.forEach((s) => io.observe(s.root));
 
-  const onLost = (e: Event) => {
-    e.preventDefault();
-    dispose(true);
+  /* input: pointer events for mouse/pen, passive touch events for fingers */
+  const opts: AddEventListenerOptions = { passive: true };
+  const onPointer = (e: PointerEvent) => {
+    if (e.pointerType === 'touch') return;
+    upsert('mouse', e.clientX, e.clientY);
+    start();
   };
-  canvas.addEventListener('webglcontextlost', onLost);
-
-  // first form up, then warm the rest in idle time
-  setBuf(aA, anchors[0].form);
-  setBuf(aB, anchors[Math.min(1, anchors.length - 1)].form);
-  curA = anchors[0].form;
-  curB = anchors[Math.min(1, anchors.length - 1)].form;
-  const warm = () => {
-    const pending = new Set<FormName>([...anchors.map((a) => a.form), ...[...document.querySelectorAll<HTMLElement>('[data-hover-form]')].map((e) => e.dataset.hoverForm as FormName)]);
-    const queue = [...pending].filter((n) => isFormName(n) && !cache.has(n));
-    const step = () => {
-      const n = queue.shift();
-      if (!n || disposed) return;
-      getForm(n);
-      ('requestIdleCallback' in window ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 60))(step);
-    };
-    step();
+  const onPointerDown = (e: PointerEvent) => {
+    if (e.pointerType === 'touch') return;
+    stages.forEach((s) => s.tap(e.clientX, e.clientY));
   };
-  ('requestIdleCallback' in window ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 300))(warm);
+  const onMouseLeave = () => remove('mouse');
+  const onTouchStart = (e: TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) {
+      upsert('t' + t.identifier, t.clientX, t.clientY);
+      stages.forEach((s) => s.tap(t.clientX, t.clientY));
+    }
+    start();
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    for (const t of Array.from(e.touches)) upsert('t' + t.identifier, t.clientX, t.clientY);
+    start();
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) remove('t' + t.identifier);
+  };
+  window.addEventListener('pointermove', onPointer, opts);
+  window.addEventListener('pointerdown', onPointerDown, opts);
+  document.documentElement.addEventListener('pointerleave', onMouseLeave, opts);
+  window.addEventListener('touchstart', onTouchStart, opts);
+  window.addEventListener('touchmove', onTouchMove, opts);
+  window.addEventListener('touchend', onTouchEnd, opts);
+  window.addEventListener('touchcancel', onTouchEnd, opts);
+  const onVis = () => (document.hidden ? undefined : start());
+  document.addEventListener('visibilitychange', onVis);
 
-  root.classList.add('is-live');
-  if (fixed) document.documentElement.classList.add('stage-live');
-  document.querySelectorAll<HTMLElement>('[data-readout-count]').forEach((el) => (el.textContent = `${count.toLocaleString('en-GB')} particles`));
-  start();
+  const theme = () => stages.forEach((s) => s.mounted && s.applyTheme());
+  const themeObserver = new MutationObserver(theme);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  mq.addEventListener('change', theme);
 
-  function dispose(lost = false) {
-    if (disposed) return;
-    disposed = true;
-    stop();
-    target.removeEventListener('pointermove', onPointerMove as EventListener);
-    document.documentElement.removeEventListener('pointerleave', onPointerLeave);
-    root.removeEventListener('pointerleave', onPointerLeave);
-    document.removeEventListener('pointerover', hoverIn);
-    document.removeEventListener('pointerout', hoverOut);
-    document.removeEventListener('focusin', hoverIn);
-    document.removeEventListener('focusout', hoverOut);
-    document.removeEventListener('visibilitychange', onVisibility);
-    canvas.removeEventListener('webglcontextlost', onLost);
-    window.removeEventListener('load', refresh);
-    schemeMq.removeEventListener('change', applyTheme);
-    themeObserver.disconnect();
-    ro.disconnect();
+  (window as any).__stage = {
+    stats,
+    live: () => live().map((s) => ({ scene: s.sceneName, mode: s.mode, n: s.n })),
+    summary: () => {
+      const r = [...stats.recent].sort((a, b) => a - b);
+      return { frames: stats.frames, avgMs: stats.sumMs / Math.max(1, stats.frames), p95Ms: r[Math.floor(r.length * 0.95)] ?? 0, maxMs: stats.maxMs };
+    },
+  };
+
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
     io.disconnect();
-    geometry.dispose();
-    material.dispose();
-    renderer.dispose();
-    if (!lost) renderer.forceContextLoss();
-    root.classList.remove('is-live');
-    if (fixed) document.documentElement.classList.remove('stage-live');
-  }
-  // debugging / test hook
-  (window as any).__stage = { count, labels: FORM_LABELS, info: () => ({ f: fSmooth, curA, curB, hoverValue }) };
-  return () => dispose();
+    window.removeEventListener('pointermove', onPointer);
+    window.removeEventListener('pointerdown', onPointerDown);
+    document.documentElement.removeEventListener('pointerleave', onMouseLeave);
+    window.removeEventListener('touchstart', onTouchStart);
+    window.removeEventListener('touchmove', onTouchMove);
+    window.removeEventListener('touchend', onTouchEnd);
+    window.removeEventListener('touchcancel', onTouchEnd);
+    document.removeEventListener('visibilitychange', onVis);
+    themeObserver.disconnect();
+    mq.removeEventListener('change', theme);
+    input.pointers = [];
+    stages.forEach((s) => {
+      s.disposed = true;
+      s.dispose();
+    });
+    // free the GPU contexts when leaving the page
+    while (pool.length) {
+      const p = pool.pop()!;
+      p.renderer.dispose();
+      p.renderer.forceContextLoss();
+    }
+    delete (window as any).__stage;
+  };
 }

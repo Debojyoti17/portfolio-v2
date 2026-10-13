@@ -1,7 +1,6 @@
 ---
 import { siteConfig } from '@site';
 import Base from '../layouts/Base.astro';
-import Stage from '../components/Stage.astro';
 import { homeSections } from '../lib/sections';
 import { socialLinks } from '../lib/site';
 import { absolute } from '../lib/url';
@@ -20,7 +19,6 @@ const jsonLd = {
 };
 ---
 
-<Base hud jsonLd={jsonLd}>
-  <Stage slot="stage" mode="fixed" form="scene" />
+<Base jsonLd={jsonLd}>
   {sections.map(({ Component }) => <Component />)}
 </Base>

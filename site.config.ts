@@ -19,6 +19,7 @@ export const features = {
   timeline: false, // resume timeline (needs ≥ 1 entry in src/content/timeline)
   githubGraph: false, // GitHub contribution graph, fetched at build time
   contactForm: false, // contact form in the contact section (see `contactForm` below)
+  workFilters: false, // topic / type / stage filters on /work/ (switch on when there are many projects)
 } as const;
 
 export const siteConfig = {
@@ -47,7 +48,6 @@ export const siteConfig = {
     x: '',
     scholar: '',
     orcid: '',
-    arxiv: '',
     huggingface: '',
     kaggle: '',
   } as Record<string, string>,
@@ -91,22 +91,22 @@ export const siteConfig = {
     'My research interests are computer vision, self-supervised learning and reliable multi-agent AI. I also build web and mobile apps.',
   ],
 
-  /** The three lines of the pinned "Research focus" section. `tag` links to the filtered Work page. */
+  /**
+   * Research areas. They head the groups on the Work page and the three columns of "What I work on".
+   * A project joins an area through `area:` in its front matter (must match a `title` here).
+   */
   interests: [
     {
       title: 'Computer vision',
-      note: '3D Gaussian Splatting and crop-disease recognition.',
-      tag: 'Computer vision',
+      note: 'Privacy and unlearning in 3D Gaussian Splatting.',
     },
     {
       title: 'Self-supervised learning',
-      note: 'Agricultural pretraining and feature distillation on a single laptop GPU.',
-      tag: 'Self-supervised learning',
+      note: 'Agricultural pretraining and feature distillation for crop-disease recognition.',
     },
     {
       title: 'Reliable multi-agent AI',
-      note: 'MAST on LangGraph and CrewAI, and fault injection with small local language models.',
-      tag: 'Multi-agent AI',
+      note: 'Extending MAST to LangGraph and CrewAI, and testing fault tolerance with small local language models.',
     },
   ],
 

@@ -327,12 +327,13 @@ main {
   white-space: nowrap;
   margin-left: -0.04em;
 }
-.footer__mono span {
-  color: var(--accent);
-}
-.hud ~ .footer,
-body:has([data-hud]) .footer {
-  padding-bottom: 36px;
+.footer__sq {
+  display: inline-block;
+  width: 0.14em;
+  height: 0.14em;
+  margin-left: 0.14em;
+  background: var(--accent);
+  vertical-align: 0.1em;
 }
 .footer__base {
   position: relative;
@@ -349,55 +350,4 @@ body:has([data-hud]) .footer {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px 20px;
-}
-
-/* ---------- HUD (home only) ---------- */
-.hud {
-  background: var(--bg);
-  border-top: 1px solid var(--rule);
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  pointer-events: none;
-  display: none;
-}
-.hud__bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 36px;
-  font-family: var(--font-mono);
-  font-size: var(--t-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.hud__bar b {
-  font-family: var(--font-dot);
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--fg);
-  letter-spacing: 0.04em;
-  margin-left: 8px;
-  font-variant-numeric: tabular-nums;
-}
-.hud__line {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  width: 100%;
-  background: var(--accent);
-  transform: scaleX(var(--p, 0));
-  transform-origin: left;
-}
-html.motion .hud {
-  display: block;
-}
-@media (max-width: 640px) {
-  .hud__sec {
-    display: none;
-  }
 }

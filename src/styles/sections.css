@@ -1,21 +1,9 @@
 /* Homepage sections + the 3D stage */
 
-/* ---------- stage ---------- */
+/* ---------- stage (interactive particle visuals) ---------- */
 .stage {
   pointer-events: none;
-}
-.stage--fixed {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100svh;
-  z-index: 0;
-  overflow: hidden;
-}
-html.stage-live .stage--fixed {
-  position: fixed;
-  height: 100lvh;
+  touch-action: pan-y;
 }
 .stage__static,
 .stage__canvas {
@@ -24,18 +12,8 @@ html.stage-live .stage--fixed {
   width: 100%;
   height: 100%;
 }
-.stage--fixed .stage__static {
-  inset: 0 auto auto 50%;
-  width: min(100%, 1500px);
-  transform: translate(-35%, -4%) scale(0.98);
-}
 .stage__static {
-  transition: opacity 1s var(--ease-out);
-}
-@media (max-width: 899px) {
-  .stage--fixed .stage__static {
-    transform: translate(-50%, -16%) scale(1.2);
-  }
+  transition: opacity 0.8s var(--ease-out);
 }
 .stage__static path {
   fill: none;
@@ -57,7 +35,8 @@ html.stage-live .stage--fixed {
 }
 .stage__canvas {
   opacity: 0;
-  transition: opacity 1.4s var(--ease-out);
+  transition: opacity 0.9s var(--ease-out);
+  touch-action: pan-y;
 }
 .stage.is-live .stage__canvas {
   opacity: 1;
@@ -66,39 +45,75 @@ html.stage-live .stage--fixed {
   opacity: 0;
 }
 
-/* inline (project page) viewport */
-.stage--inline {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 7;
-  min-height: 260px;
-  max-height: 640px;
-  border: 1px solid var(--rule-strong);
+/* hero: fills the hero section and never leaves it */
+.stage--hero {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.stage--hero .stage__static {
+  inset: 0 auto auto 50%;
+  width: min(100%, 1500px);
+  transform: translate(-35%, -4%) scale(0.98);
+}
+@media (max-width: 899px) {
+  .stage--hero .stage__static {
+    transform: translate(-50%, -16%) scale(1.2);
+  }
+}
+
+/* project visuals (cards and project pages) */
+.stage--card,
+.stage--viewport {
+  position: absolute;
+  inset: 0;
   pointer-events: auto;
 }
-.stage--inline .stage__static {
-  transform: none;
+.stage--card .stage__static,
+.stage--viewport .stage__static {
+  padding: 5%;
 }
+.stage--card .sf-far { stroke-width: 0.05; }
+.stage--card .sf-near { stroke-width: 0.072; }
+.stage--card .stage__static .sf-accent { stroke-width: 0.1; }
+.stage--viewport .sf-far { stroke-width: 0.026; }
+.stage--viewport .sf-near { stroke-width: 0.04; }
+.stage--viewport .stage__static .sf-accent { stroke-width: 0.058; }
+
 .viewport {
   position: relative;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--rule-strong);
+  touch-action: pan-y;
+}
+@media (min-width: 700px) {
+  .viewport {
+    aspect-ratio: 16 / 7;
+    min-height: 300px;
+    max-height: 640px;
+  }
+}
+.viewport__cap > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewport__cap > span:last-child {
+  flex: none;
+  white-space: nowrap;
 }
 .viewport__cap {
   position: absolute;
   z-index: 2;
-  left: 12px;
-  right: 12px;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   pointer-events: none;
-}
-.viewport__cap--top {
-  top: 10px;
-}
-.viewport__cap--bottom {
-  bottom: 10px;
-}
-.viewport__cap .label {
   color: var(--muted);
 }
 .viewport__corner {
@@ -119,10 +134,13 @@ html.stage-live .stage--fixed {
   z-index: 1;
   min-height: 100svh;
   padding-top: calc(var(--nav-h) + var(--space-5));
-  padding-bottom: 72px;
+  padding-bottom: 40px;
   display: flex;
+  overflow: hidden;
 }
 .hero__inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -231,129 +249,57 @@ html.stage-live .stage--fixed {
     grid-column: 1 / span 5;
   }
   .hero__actions {
-    grid-column: 8 / -1;
+    grid-column: 1 / span 7;
     justify-items: start;
   }
 }
 
-/* ---------- focus (pinned, scrubbed) ---------- */
-.focus {
-  position: relative;
-  z-index: 1;
-}
-.focus__item {
-  position: relative;
+/* ---------- research areas ("What I work on") ---------- */
+.areas {
   display: grid;
-  grid-template-columns: 1fr;
-  column-gap: var(--gutter);
   border-top: 1px solid var(--rule);
-  padding-block: clamp(20px, 3vw, 44px);
 }
-.focus__idx {
-  margin-bottom: 8px;
+.area {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding-block: 28px;
+  border-bottom: 1px solid var(--rule);
 }
-.focus__line {
-  font-size: clamp(2.5rem, 1rem + 8vw, 9rem);
-  line-height: 0.94;
-  letter-spacing: -0.05em;
+.area__idx {
+  font-size: 1.25rem;
+  color: var(--muted);
+}
+.area__name {
+  font-size: var(--t-h3);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   font-weight: 600;
   text-wrap: balance;
 }
-.focus__body {
-  display: grid;
-  grid-template-rows: 1fr;
-}
-.focus__body > div {
-  overflow: hidden;
-}
-.focus__note {
-  max-width: 44ch;
-  margin-top: 18px;
+.area__note {
   color: var(--fg-2);
+  max-width: 36ch;
 }
-.focus__link {
-  margin-top: 14px;
+.area__projects {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 8px;
 }
 @media (min-width: 900px) {
-  .focus__item {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+  .areas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--gutter);
+    border-top: 0;
   }
-  .focus__idx {
-    grid-column: 1 / span 3;
-    margin: 1.4em 0 0;
+  .area {
+    border-bottom: 0;
+    border-top: 1px solid var(--rule-strong);
+    padding-top: 20px;
+    padding-bottom: 0;
+    gap: 14px;
   }
-  .focus__main {
-    grid-column: 4 / -1;
-  }
-}
-.focus__anchor {
-  display: none;
-}
-html.motion:not(.motion-failed) .focus__track {
-  position: relative;
-  height: calc(100svh * (var(--n) + 0.7));
-}
-html.motion:not(.motion-failed) .focus__sticky {
-  position: sticky;
-  top: 0;
-  height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: var(--nav-h);
-  padding-bottom: 36px;
-  overflow: hidden;
-}
-html.motion:not(.motion-failed) .focus__anchor {
-  display: block;
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: calc(100% / var(--n));
-  top: calc(100% / var(--n) * var(--i));
-  pointer-events: none;
-}
-html.motion:not(.motion-failed) .focus .sec-head {
-  margin-bottom: clamp(16px, 3vh, 48px);
-}
-html.motion.motion-ready .focus__item {
-  padding-block: clamp(10px, 2.2vh, 28px);
-  transition: opacity 0.6s var(--ease-out);
-  opacity: 0.2;
-}
-html.motion.motion-ready .focus__item.is-active {
-  opacity: 1;
-}
-html.motion.motion-ready .focus__item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -1px;
-  height: 2px;
-  width: 100%;
-  background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.9s var(--ease-out);
-}
-html.motion.motion-ready .focus__item.is-active::before {
-  transform: scaleX(1);
-}
-html.motion.motion-ready .focus__line {
-  font-size: clamp(2.2rem, 0.8rem + 6.4vw, 7.4rem);
-}
-html.motion.motion-ready .focus__body {
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.7s var(--ease-out);
-}
-html.motion.motion-ready .focus__item.is-active .focus__body {
-  grid-template-rows: 1fr;
-}
-html.motion.motion-ready .focus__idx {
-  margin-bottom: 4px;
-}
-.sec--tight {
-  padding-block: 0;
 }
 
 /* ---------- work rows ---------- */
@@ -450,7 +396,7 @@ html.motion.motion-ready .focus__idx {
 @media (min-width: 900px) {
   .row__link {
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-template-areas: 'idx title title title title title sum sum sum sum status status';
+    grid-template-areas: 'idx title title title title sum sum sum sum status status status';
     align-items: start;
   }
   .row__idx {
@@ -540,6 +486,22 @@ html.motion.motion-ready .focus__idx {
   color: var(--bg);
   mix-blend-mode: difference;
 }
+.about__bio {
+  display: grid;
+  gap: 1em;
+  max-width: 58ch;
+  color: var(--fg-2);
+}
+.about__bio p:first-child {
+  color: var(--fg);
+}
+.about__note {
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
 .about__text {
   grid-column: 1 / -1;
   display: grid;
@@ -553,6 +515,10 @@ html.motion.motion-ready .focus__idx {
   border-top: 1px solid var(--rule);
 }
 .about__years {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  white-space: nowrap;
   font-family: var(--font-dot);
   font-weight: 800;
   font-size: clamp(2.25rem, 1.2rem + 4vw, 4.5rem);
@@ -573,6 +539,9 @@ html.motion.motion-ready .focus__idx {
   }
   .about__text {
     grid-column: 6 / -1;
+  }
+  .about__grid--text .about__text {
+    grid-column: 4 / -1;
   }
 }
 

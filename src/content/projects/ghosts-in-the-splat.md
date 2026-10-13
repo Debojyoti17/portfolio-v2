@@ -1,11 +1,13 @@
 ---
 title: Ghosts in the Splat
-status: Early stage
+type: Research project
+stage: Early stage
+area: Computer vision
 summary: Privacy of object removal (scene unlearning) in 3D Gaussian Splatting.
-tags: [Computer vision, 3D Gaussian Splatting, Privacy]
+tags: [3D Gaussian Splatting, Privacy]
 featured: true
 order: 3
-form: erase
+visual: ghost
 ---
 
 Ghosts in the Splat studies the **privacy of object removal** (scene unlearning) in 3D Gaussian

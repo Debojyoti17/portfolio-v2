@@ -1,20 +1,17 @@
 ---
 /**
- * Static SVG render of a particle form: the no-JS / reduced-motion / no-WebGL
- * stand-in for the live stage, and the thumbnail for project plates.
+ * Static SVG render of a scene: the no-JS / reduced-motion / no-WebGL stand-in for the live stage.
  */
 import { buildStaticField } from '../lib/staticField';
-import type { FormName } from '../scripts/stage/forms';
+import type { SceneName } from '../scripts/stage/scenes';
 
 interface Props {
-  form: FormName;
+  scene: SceneName;
   count?: number;
-  yaw?: number;
-  pitch?: number;
   class?: string;
 }
-const { form, count = 1100, yaw, pitch, class: className = '' } = Astro.props;
-const f = buildStaticField({ form, count, yaw, pitch });
+const { scene, count = 1100, class: className = '' } = Astro.props;
+const f = buildStaticField(scene, count);
 ---
 
 <svg class={`static-field ${className}`.trim()} viewBox={f.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">

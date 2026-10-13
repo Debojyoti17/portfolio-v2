@@ -2,7 +2,7 @@
 import { siteConfig, features } from '@site';
 import { href } from '../lib/url';
 import { hasProfile, hasCV } from '../lib/site';
-import { getEducation, getTimeline, getPublications, formatPeriod } from '../lib/content';
+import { getEducation, getTimeline, getPublications } from '../lib/content';
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import SkillsSheet from '../components/SkillsSheet.astro';
@@ -13,7 +13,6 @@ import SectionHead from '../components/SectionHead.astro';
 const edu = await getEducation();
 const timeline = await getTimeline();
 const pubs = await getPublications();
-const first = edu[0];
 ---
 
 <Base title="About" description={siteConfig.description} ogImage="/og/about.png">
@@ -25,30 +24,17 @@ const first = edu[0];
 
   <section class="sec sec--flush" aria-label="Biography">
     <div class="container">
-      <div class="grid about__grid about-page">
-        <figure class="plate marks about-page__plate">
-          {hasProfile ? (
-            <>
-              <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} width="880" height="1100" decoding="async" />
-              <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
-            </>
-          ) : (
-            <div class="plate__card" aria-hidden="true">
-              <span class="plate__cross"></span>
-              <p class="label">Index card</p>
-              <p class="plate__mono">{siteConfig.initials}<span>.</span></p>
-              <p class="plate__meta label">
-                {first && <span>{first.data.org.replace(/\s*\(.*\)/, '')}</span>}
-                {first && <span>{formatPeriod(first.data)}</span>}
-                {siteConfig.place && <span>{siteConfig.place.label}</span>}
-              </p>
-            </div>
-          )}
-        </figure>
+      <div class={`grid about__grid about-page${hasProfile ? '' : ' about__grid--text'}`}>
+        {hasProfile && (
+          <figure class="plate marks about-page__plate">
+            <img src={href(siteConfig.files.profile)} alt={`Portrait of ${siteConfig.name}`} width="880" height="1100" decoding="async" />
+            <figcaption class="plate__cap label"><span>{siteConfig.name}</span>{siteConfig.place && <span>{siteConfig.place.label}</span>}</figcaption>
+          </figure>
+        )}
 
         <div class="about__text about-page__text">
-          <div>
-            {siteConfig.bio.map((p, i) => <p class={i === 0 ? 'lead' : ''} style={i > 0 ? 'margin-top:1em;color:var(--fg-2);max-width:58ch' : ''}>{p}</p>)}
+          <div class="about__bio">
+            {siteConfig.bio.map((p) => <p>{p}</p>)}
           </div>
 
           {edu.length > 0 && (
@@ -56,9 +42,9 @@ const first = edu[0];
               <p class="label">Education</p>
               {edu.map((e) => (
                 <div class="about__edu" data-reveal="fade">
-                  <p class="about__years">{e.data.start} – {e.data.end}</p>
+                  <p class="about__years">{e.data.start} – {e.data.end}{e.data.endNote && <span class="about__note"> ({e.data.endNote})</span>}</p>
                   <p class="about__degree">{e.data.title}</p>
-                  <p class="tl__org">{e.data.org}{e.data.location ? `, ${e.data.location}` : ''}{e.data.endNote ? ` (${e.data.endNote})` : ''}</p>
+                  <p class="tl__org">{e.data.org}{e.data.location ? `, ${e.data.location}` : ''}</p>
                 </div>
               ))}
             </div>
